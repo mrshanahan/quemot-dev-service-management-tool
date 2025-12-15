@@ -1,8 +1,12 @@
 package command
 
 import (
+	"embed"
 	"flag"
 	"fmt"
+	"log/slog"
+	"os"
+	"regexp"
 	"strings"
 
 	"github.com/mrshanahan/quemot-dev-service-management-tool/internal/file"
@@ -39,18 +43,25 @@ func (s *NewCommandSpec) Usage() string {
     
         -name <string>  Name of the project
                         This will be used as the repository name where possible (see -path) and executable name where appropriate.
+                        Must match pattern: %s
     
         -type <string>  Type of project to create.
                         Available types: %s
-`, SUPPORTED_PROJECT_TYPES_STR)
+`, validateNamePattern, SUPPORTED_PROJECT_TYPES_STR)
 }
+
+var (
+	validateNamePattern string         = `^[a-zA-Z0-9\-]*[a-zA-Z0-9]$`
+	ValidateName        *regexp.Regexp = regexp.MustCompile(validateNamePattern)
+)
 
 func (s *NewCommandSpec) Build() (Command, error) {
 	fs := flag.NewFlagSet("new", flag.ContinueOnError)
 	fs.SetOutput(&EmptyWriter{})
-	nameParam := fs.String("name", "", "Name of the service")
-	pathParam := fs.String("path", "", "Path where the base directory should be placed.\nE.g. \"foo/bar\" would indicate that the service \"bip\" would be at \"foo/bar/bip\".")
-	typeParam := fs.String("type", "service", fmt.Sprintf("Type of project to create. Available types: %s", SUPPORTED_PROJECT_TYPES_STR))
+	nameParam := fs.String("name", "", "")
+	pathParam := fs.String("path", "", "")
+	typeParam := fs.String("type", "service", "")
+	debugParam := fs.Bool("debug", false, "")
 
 	if err := fs.Parse(s.Args); err != nil {
 		if err == flag.ErrHelp {
@@ -59,9 +70,18 @@ func (s *NewCommandSpec) Build() (Command, error) {
 		return nil, fmt.Errorf("failed to parse command line: %v", err)
 	}
 
+	if *debugParam {
+		slog.SetLogLoggerLevel(slog.LevelDebug)
+	} else {
+		slog.SetLogLoggerLevel(slog.LevelInfo)
+	}
+
 	name := *nameParam
 	if name == "" {
 		return nil, fmt.Errorf("missing required parameter: name")
+	}
+	if !ValidateName.MatchString(name) {
+		return nil, fmt.Errorf("invalid name: %s", name)
 	}
 
 	path := *pathParam
@@ -80,11 +100,58 @@ func (s *NewCommandSpec) Build() (Command, error) {
 }
 
 type NewCommand struct {
-	name string
-	typ  ProjectType
-	path string
+	name        string
+	projectType ProjectType
+	path        string
 }
 
+//go:embed templates
+var templates embed.FS
+
 func (c *NewCommand) Invoke() error {
+	if _, _, err := utils.ExecuteCommand("which", "go"); err != nil {
+		return fmt.Errorf("go CLI is not available on PATH; ensure it is available & try again")
+	}
+
+	switch c.projectType {
+	case SERVICE:
+		if err := os.MkdirAll(c.path, 0o700); err != nil {
+			return err
+		}
+
+		envVarPrefix := strings.ReplaceAll(strings.ToUpper(c.name), "-", "_")
+		variables := map[string]string{
+			"API_PORT_ENVVAR":  fmt.Sprintf("%s_PORT", envVarPrefix),
+			"API_PORT_DEFAULT": "8080",
+			"NAME":             c.name,
+			"HOSTNAME":         fmt.Sprintf("%s.quemot.dev", c.name),
+		}
+		if err := file.CopyTemplate(templates, "templates/service", c.path, variables); err != nil {
+			return fmt.Errorf("failed to copy project template to %s: %w", c.path, err)
+		}
+
+		// TODO: Clean up if shit hits the fan
+
+		moduleName := fmt.Sprintf("github.com/mrshanahan/%s", c.name)
+		if _, _, err := utils.ExecuteCommandInDir(c.path, "go", "mod", "init", moduleName); err != nil {
+			return fmt.Errorf("failed to initialize go module: %w", err)
+		}
+
+		packagesBytes, err := templates.ReadFile("templates/service/IGNORE__packages.txt")
+		if err != nil {
+			return fmt.Errorf("failed to load go package requirements: %w", err)
+		}
+
+		packages := strings.Split(string(packagesBytes), "\n")
+		for _, p := range packages {
+			if _, _, err := utils.ExecuteCommandInDir(c.path, "go", "get", "-u", p); err != nil {
+				return fmt.Errorf("failed to install package %s: %w", p, err)
+			}
+		}
+
+		if _, _, err := utils.ExecuteCommandInDir(c.path, "go", "mod", "tidy"); err != nil {
+			return fmt.Errorf("failed to tidy go module: %w", err)
+		}
+	}
 	return nil
 }
