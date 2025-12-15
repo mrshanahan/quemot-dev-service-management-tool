@@ -120,11 +120,14 @@ func (c *NewCommand) Invoke() error {
 		}
 
 		envVarPrefix := strings.ReplaceAll(strings.ToUpper(c.name), "-", "_")
+		dockerImageName := fmt.Sprintf("quemot-dev/%s", c.name)
+		hostname := fmt.Sprintf("%s.quemot.dev", c.name)
 		variables := map[string]string{
-			"API_PORT_ENVVAR":  fmt.Sprintf("%s_PORT", envVarPrefix),
-			"API_PORT_DEFAULT": "8080",
-			"NAME":             c.name,
-			"HOSTNAME":         fmt.Sprintf("%s.quemot.dev", c.name),
+			"NAME":              c.name,
+			"DOCKER_IMAGE_NAME": dockerImageName,
+			"HOSTNAME":          hostname,
+			"ENVVAR_PREFIX":     envVarPrefix,
+			"API_PORT_DEFAULT":  "8080",
 		}
 		if err := file.CopyTemplate(templates, "templates/service", c.path, variables); err != nil {
 			return fmt.Errorf("failed to copy project template to %s: %w", c.path, err)

@@ -25,14 +25,16 @@ const (
 	TokenCookieName string = "access_token"
 	TokenLocalName  string = "access_token"
 	DefaultPort     int    = {{API_PORT_DEFAULT}}
+	PortEnvVar string = "{{ENVVAR_PREFIX}}_PORT"
 )
 
 func Run() int {
-	portStr := os.Getenv("{{API_PORT_ENVVAR}}")
+	portStr := os.Getenv(PortEnvVar)
 	port, err := strconv.Atoi(portStr)
 	if err != nil {
 		port = DefaultPort
-		slog.Info("no valid port provided via {{API_PORT_ENVVAR}}, using default",
+		slog.Info("no valid port provided via environment, using default",
+			"var", PortEnvVar,
 			"portStr", portStr,
 			"defaultPort", port)
 	} else {
