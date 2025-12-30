@@ -37,11 +37,12 @@ func Run(args []string) int {
 	cmd, err := spec.Build()
 	if err != nil {
 		if err == flag.ErrHelp {
-			utils.PrintErrln(spec.Usage())
+			// fs.Usage()
+			// utils.PrintErrln(spec.Usage())
 			return 0
 		}
 		utils.PrintErrf("error: %v\n\n", err)
-		utils.PrintErrln(spec.Usage())
+		// utils.PrintErrln(spec.Usage())
 		return 1
 	}
 

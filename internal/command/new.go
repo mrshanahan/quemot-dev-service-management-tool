@@ -58,16 +58,34 @@ var (
 func (s *NewCommandSpec) Build() (Command, error) {
 	fs := flag.NewFlagSet("new", flag.ContinueOnError)
 	fs.SetOutput(&EmptyWriter{})
-	nameParam := fs.String("name", "", "")
-	pathParam := fs.String("path", "", "")
-	typeParam := fs.String("type", "service", "")
-	debugParam := fs.Bool("debug", false, "")
+	nameParam := fs.String(
+		"name",
+		"",
+		"Path to the new project\n"+
+			"- If the path does not exist, the project will be created there (irrespective of -name).\n"+
+			"- If the path is a directory, the project will be created as a subdirectory therein with the name from -name.\n"+
+			"- All other scenarios result in an error.")
+	pathParam := fs.String(
+		"path",
+		"",
+		"Name of the project\n"+
+			"This will be used as the repository name where possible (see -path) and executable name where appropriate.\n"+
+			fmt.Sprintf("Must match pattern: %s", validateNamePattern))
+	typeParam := fs.String(
+		"type",
+		"service",
+		"Type of project to create\n"+
+			fmt.Sprintf("Available types: %s", SUPPORTED_PROJECT_TYPES_STR))
+	debugParam := fs.Bool("debug", false, "Set log level to debug")
 
 	if err := fs.Parse(s.Args); err != nil {
-		if err == flag.ErrHelp {
-			return nil, err
+		if err != flag.ErrHelp {
+			utils.PrintErrf("error: %v\n", err)
 		}
-		return nil, fmt.Errorf("failed to parse command line: %v", err)
+		// return nil, err
+		fs.SetOutput(nil)
+		fs.Usage()
+		return nil, err
 	}
 
 	if *debugParam {
