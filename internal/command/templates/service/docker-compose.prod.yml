@@ -1,0 +1,16 @@
+# Variables:
+# - API_PORT (default: {{API_PORT_DEFAULT}}): Port to expose for {{NAME}} API
+
+services:
+  {{NAME}}:
+    image: {{DOCKER_IMAGE_NAME}}
+    ports:
+      - ${API_PORT:-{{API_PORT_DEFAULT}}}:80
+    environment:
+      {{ENVVAR_PREFIX}}_DB_PATH: /app/data/{{NAME}}.sqlite
+      {{ENVVAR_PREFIX}}_PORT: 80
+      {{ENVVAR_PREFIX}}_AUTH_PROVIDER_URL: https://auth.quemot.dev/realms/{{NAME}}
+      {{ENVVAR_PREFIX}}_REDIRECT_URL: https://{{HOSTNAME}}/auth/callback
+      {{ENVVAR_PREFIX}}_ALLOWED_ORIGINS: https://{{HOSTNAME}}
+    volumes:
+      - ./data:/app/data

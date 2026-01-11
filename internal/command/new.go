@@ -25,29 +25,18 @@ var (
 	}
 
 	SUPPORTED_PROJECT_TYPES_STR string = strings.Join(utils.Keys(SUPPORTED_PROJECT_TYPES), ", ")
+
+	AVAILABLE_FEATURES []string = []string{
+		"auth",
+		"static-assets",
+		"database",
+	}
+
+	AVAILABLE_FEATURES_STR string = strings.Join(AVAILABLE_FEATURES, ", ")
 )
 
 type NewCommandSpec struct {
 	Args []string
-}
-
-func (s *NewCommandSpec) Usage() string {
-	return fmt.Sprintf(`Usage:
-    smt new <options>
-
-    Options:
-        -path <string>  Path to the new project
-                        - If the path does not exist, the project will be created there (irrespective of -name).
-                        - If the path is a directory, the project will be created as a subdirectory therein with the name from -name.
-                        - All other scenarios result in an error.
-    
-        -name <string>  Name of the project
-                        This will be used as the repository name where possible (see -path) and executable name where appropriate.
-                        Must match pattern: %s
-    
-        -type <string>  Type of project to create.
-                        Available types: %s
-`, validateNamePattern, SUPPORTED_PROJECT_TYPES_STR)
 }
 
 var (
@@ -61,21 +50,26 @@ func (s *NewCommandSpec) Build() (Command, error) {
 	nameParam := fs.String(
 		"name",
 		"",
+		"Name of the project\n"+
+			"This will be used as the repository name where possible (see -path) and executable name where appropriate.\n"+
+			fmt.Sprintf("Must match pattern: %s", validateNamePattern))
+	pathParam := fs.String(
+		"path",
+		"",
 		"Path to the new project\n"+
 			"- If the path does not exist, the project will be created there (irrespective of -name).\n"+
 			"- If the path is a directory, the project will be created as a subdirectory therein with the name from -name.\n"+
 			"- All other scenarios result in an error.")
-	pathParam := fs.String(
-		"path",
-		"",
-		"Name of the project\n"+
-			"This will be used as the repository name where possible (see -path) and executable name where appropriate.\n"+
-			fmt.Sprintf("Must match pattern: %s", validateNamePattern))
 	typeParam := fs.String(
 		"type",
 		"service",
 		"Type of project to create\n"+
 			fmt.Sprintf("Available types: %s", SUPPORTED_PROJECT_TYPES_STR))
+	// featuresParams := fs.String(
+	// 	"features",
+	// 	"auth",
+	// 	"Additional features to include, varying by service.\n"+
+	// 		fmt.Sprintf("All available features are: %s", AVAILABLE_FEATURES_STR))
 	debugParam := fs.Bool("debug", false, "Set log level to debug")
 
 	if err := fs.Parse(s.Args); err != nil {
@@ -142,6 +136,7 @@ func (c *NewCommand) Invoke() error {
 		hostname := fmt.Sprintf("%s.quemot.dev", c.name)
 		variables := map[string]string{
 			"NAME":              c.name,
+			"NAME_UPPER":        strings.ToUpper(c.name),
 			"DOCKER_IMAGE_NAME": dockerImageName,
 			"HOSTNAME":          hostname,
 			"ENVVAR_PREFIX":     envVarPrefix,

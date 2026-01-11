@@ -21,21 +21,12 @@
     "assets": [
         {
             "type": "file",
-            "name": "mgmt-files",
-            "src": "local",
-            "dst": "*",
-            "src_path": "package-files/",
-            "dst_path": "/etc/quemot-dev/{{NAME}}/package/",
-            "recursive": true,
-            "force": true
-        },
-        {
-            "type": "file",
             "name": "docker-compose",
             "src": "local",
             "dst": "*",
-            "src_path": "docker-compose.yml",
-            "dst_path": "/etc/quemot-dev/{{NAME}}/package/docker-compose.yml"
+            "src_path": "docker-compose.prod.yml",
+            "dst_path": "/etc/quemot-dev/{{NAME}}/docker-compose.yml",
+            "force": true
         },
         {
             "type": "docker_image",
@@ -49,7 +40,7 @@
             "post_command": [
                 {
                     "command": "systemctl is-active {{NAME}}.service >/dev/null && systemctl restart {{NAME}}.service",
-                    "trigger": "on_changed"
+                    "trigger": "on_updated"
                 }
             ]
         },

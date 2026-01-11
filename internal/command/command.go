@@ -1,7 +1,6 @@
 package command
 
 type CommandSpec interface {
-	Usage() string
 	Build() (Command, error)
 }
 

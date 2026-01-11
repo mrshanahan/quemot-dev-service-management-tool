@@ -8,7 +8,7 @@ Type=simple
 Restart=always
 RestartSec=5
 User=root
-ExecStart=smt start {{NAME}}
+ExecStart=docker compose -f /etc/quemot-dev/{{NAME}}/docker-compose.yml up
 
 [Install]
 WantedBy=multi-user.target
