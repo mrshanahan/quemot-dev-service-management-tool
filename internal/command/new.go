@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"os"
 	"regexp"
+	"slices"
 	"strings"
 
 	"github.com/mrshanahan/quemot-dev-service-management-tool/internal/file"
@@ -33,6 +34,13 @@ var (
 	}
 
 	AVAILABLE_FEATURES_STR string = strings.Join(AVAILABLE_FEATURES, ", ")
+
+	AVAILABLE_VARIABLES []string = []string{
+		"API_PORT_DEFAULT",
+		"DOMAIN_SUFFIX",
+	}
+
+	AVAILABLE_VARIABLES_STR string = strings.Join(AVAILABLE_VARIABLES, ", ")
 )
 
 type NewCommandSpec struct {
@@ -65,6 +73,11 @@ func (s *NewCommandSpec) Build() (Command, error) {
 		"service",
 		"Type of project to create\n"+
 			fmt.Sprintf("Available types: %s", SUPPORTED_PROJECT_TYPES_STR))
+	varsParam := fs.String(
+		"vars",
+		"",
+		"Comma-separated list of additional variables in the form of <var1>=<value1>,<var2>=<value2>,etc.\n"+
+			fmt.Sprintf("Available variables: %s", AVAILABLE_VARIABLES_STR))
 	// featuresParams := fs.String(
 	// 	"features",
 	// 	"auth",
@@ -108,13 +121,29 @@ func (s *NewCommandSpec) Build() (Command, error) {
 		return nil, fmt.Errorf("invalid project type: %s. Valid project types are: %s", typStr, SUPPORTED_PROJECT_TYPES_STR)
 	}
 
-	return &NewCommand{name, typ, projectPath}, nil
+	varsStr := *varsParam
+	comps := strings.Split(varsStr, ",")
+	vars := map[string]string{}
+	for _, c := range comps {
+		splitIdx := strings.Index(c, "=")
+		if splitIdx <= 0 {
+			return nil, fmt.Errorf("invalid variable declaration: %s", c)
+		}
+		variable, value := c[:splitIdx], c[splitIdx+1:]
+		if !slices.Contains(AVAILABLE_VARIABLES, variable) {
+			return nil, fmt.Errorf("unknown variable: %s", variable)
+		}
+		vars[variable] = value
+	}
+
+	return &NewCommand{name, typ, projectPath, vars}, nil
 }
 
 type NewCommand struct {
-	name        string
-	projectType ProjectType
-	path        string
+	name         string
+	projectType  ProjectType
+	path         string
+	varOverrides map[string]string
 }
 
 //go:embed templates
@@ -131,9 +160,14 @@ func (c *NewCommand) Invoke() error {
 			return err
 		}
 
+		domain := "quemot.dev"
+		if domainOverride, prs := c.varOverrides["DOMAIN_SUFFIX"]; prs {
+			domain = domainOverride
+		}
+
 		envVarPrefix := strings.ReplaceAll(strings.ToUpper(c.name), "-", "_")
 		dockerImageName := fmt.Sprintf("quemot-dev/%s", c.name)
-		hostname := fmt.Sprintf("%s.quemot.dev", c.name)
+		hostname := fmt.Sprintf("%s.%s", c.name, domain)
 		variables := map[string]string{
 			"NAME":              c.name,
 			"NAME_UPPER":        strings.ToUpper(c.name),
@@ -142,6 +176,10 @@ func (c *NewCommand) Invoke() error {
 			"ENVVAR_PREFIX":     envVarPrefix,
 			"API_PORT_DEFAULT":  "8080",
 		}
+		for k, v := range c.varOverrides {
+			variables[k] = v
+		}
+
 		if err := file.CopyTemplate(templates, "templates/service", c.path, variables); err != nil {
 			return fmt.Errorf("failed to copy project template to %s: %w", c.path, err)
 		}
