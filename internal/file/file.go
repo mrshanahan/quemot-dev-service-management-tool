@@ -9,6 +9,27 @@ import (
 	"strings"
 )
 
+type VariableValue struct {
+	isFunction bool
+	f          func() string
+	v          string
+}
+
+func (v VariableValue) Value() string {
+	if v.isFunction {
+		return v.f()
+	}
+	return v.v
+}
+
+func VarFunc(f func() string) VariableValue {
+	return VariableValue{true, f, ""}
+}
+
+func VarValue(v string) VariableValue {
+	return VariableValue{false, nil, v}
+}
+
 func fileinfo(path string) (os.FileInfo, bool, error) {
 	stat, err := os.Stat(path)
 	if err == nil {
@@ -114,15 +135,15 @@ func IsNotIgnored(d fs.DirEntry, path string) bool {
 }
 
 var (
-	VariablePattern *regexp.Regexp = regexp.MustCompile(`{{([a-zA-Z0-9_]+)}}`)
+	VariablePattern *regexp.Regexp = regexp.MustCompile(`{{([a-zA-Z0-9()_]+)}}`)
 )
 
-func HandleNameFactory(variables map[string]string) func(d fs.DirEntry, path string) string {
+func HandleNameFactory(variables map[string]VariableValue) func(d fs.DirEntry, path string) string {
 	return func(d fs.DirEntry, path string) string {
 		renamedBytes := VariablePattern.ReplaceAllFunc([]byte(path), func(bs []byte) []byte {
 			val, prs := variables[string(bs[2:len(bs)-2])]
 			if prs {
-				return []byte(val)
+				return []byte(val.Value())
 			}
 			return bs
 		})
@@ -130,12 +151,12 @@ func HandleNameFactory(variables map[string]string) func(d fs.DirEntry, path str
 	}
 }
 
-func HandleDataFactory(variables map[string]string) func(d fs.DirEntry, data []byte) []byte {
+func HandleDataFactory(variables map[string]VariableValue) func(d fs.DirEntry, data []byte) []byte {
 	return func(d fs.DirEntry, data []byte) []byte {
 		replacedBytes := VariablePattern.ReplaceAllFunc(data, func(bs []byte) []byte {
 			val, prs := variables[string(bs[2:len(bs)-2])]
 			if prs {
-				return []byte(val)
+				return []byte(val.Value())
 			}
 			return bs
 		})
@@ -143,6 +164,6 @@ func HandleDataFactory(variables map[string]string) func(d fs.DirEntry, data []b
 	}
 }
 
-func CopyTemplate(fsys fs.FS, src string, dst string, variables map[string]string) error {
+func CopyTemplate(fsys fs.FS, src string, dst string, variables map[string]VariableValue) error {
 	return CopyFSWithReplacment(fsys, src, dst, IsNotIgnored, HandleNameFactory(variables), HandleDataFactory(variables))
 }

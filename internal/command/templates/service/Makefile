@@ -10,4 +10,10 @@ compile:
 build-image:
 	docker build --build-arg GIT_SHA=$$(git rev-parse HEAD) -t {{DOCKER_IMAGE_NAME}} .
 
-.PHONY: compile build-image
+build-dev:
+	DISABLE_AUTH=1 docker compose -f ./docker-compose.yml build
+
+run-dev:
+	DISABLE_AUTH=1 docker compose -f ./docker-compose.yml up
+
+.PHONY: compile build-image build-dev run-dev

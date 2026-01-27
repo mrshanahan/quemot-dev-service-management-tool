@@ -10,6 +10,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/google/uuid"
 	"github.com/mrshanahan/quemot-dev-service-management-tool/internal/file"
 	"github.com/mrshanahan/quemot-dev-service-management-tool/internal/utils"
 )
@@ -121,19 +122,21 @@ func (s *NewCommandSpec) Build() (Command, error) {
 		return nil, fmt.Errorf("invalid project type: %s. Valid project types are: %s", typStr, SUPPORTED_PROJECT_TYPES_STR)
 	}
 
-	varsStr := *varsParam
-	comps := strings.Split(varsStr, ",")
 	vars := map[string]string{}
-	for _, c := range comps {
-		splitIdx := strings.Index(c, "=")
-		if splitIdx <= 0 {
-			return nil, fmt.Errorf("invalid variable declaration: %s", c)
+	varsStr := *varsParam
+	if varsStr != "" {
+		comps := strings.Split(varsStr, ",")
+		for _, c := range comps {
+			splitIdx := strings.Index(c, "=")
+			if splitIdx <= 0 {
+				return nil, fmt.Errorf("invalid variable declaration: %s", c)
+			}
+			variable, value := c[:splitIdx], c[splitIdx+1:]
+			if !slices.Contains(AVAILABLE_VARIABLES, variable) {
+				return nil, fmt.Errorf("unknown variable: %s", variable)
+			}
+			vars[variable] = value
 		}
-		variable, value := c[:splitIdx], c[splitIdx+1:]
-		if !slices.Contains(AVAILABLE_VARIABLES, variable) {
-			return nil, fmt.Errorf("unknown variable: %s", variable)
-		}
-		vars[variable] = value
 	}
 
 	return &NewCommand{name, typ, projectPath, vars}, nil
@@ -168,16 +171,17 @@ func (c *NewCommand) Invoke() error {
 		envVarPrefix := strings.ReplaceAll(strings.ToUpper(c.name), "-", "_")
 		dockerImageName := fmt.Sprintf("quemot-dev/%s", c.name)
 		hostname := fmt.Sprintf("%s.%s", c.name, domain)
-		variables := map[string]string{
-			"NAME":              c.name,
-			"NAME_UPPER":        strings.ToUpper(c.name),
-			"DOCKER_IMAGE_NAME": dockerImageName,
-			"HOSTNAME":          hostname,
-			"ENVVAR_PREFIX":     envVarPrefix,
-			"API_PORT_DEFAULT":  "8080",
+		variables := map[string]file.VariableValue{
+			"NEW_GUID()":        file.VarFunc(func() string { return uuid.NewString() }),
+			"NAME":              file.VarValue(c.name),
+			"NAME_UPPER":        file.VarValue(strings.ToUpper(c.name)),
+			"DOCKER_IMAGE_NAME": file.VarValue(dockerImageName),
+			"HOSTNAME":          file.VarValue(hostname),
+			"ENVVAR_PREFIX":     file.VarValue(envVarPrefix),
+			"API_PORT_DEFAULT":  file.VarValue("8080"),
 		}
 		for k, v := range c.varOverrides {
-			variables[k] = v
+			variables[k] = file.VarValue(v)
 		}
 
 		if err := file.CopyTemplate(templates, "templates/service", c.path, variables); err != nil {
