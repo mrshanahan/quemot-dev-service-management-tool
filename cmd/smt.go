@@ -9,8 +9,13 @@ import (
 )
 
 func rootUsage() {
-	utils.PrintErrf("error: no command provided")
-	utils.PrintErrf("usage: smt <command> <options>")
+	utils.PrintErrln("smt <command> <options>")
+	utils.PrintErrln("")
+	utils.PrintErrln("    Commands:")
+	utils.PrintErrf("        new		Create a new project from a template\n")
+	utils.PrintErrf("        deploy		Deploy an existing project to a remote server\n")
+	utils.PrintErrf("        config		Configure connections to remove servers\n")
+	utils.PrintErrln("")
 }
 
 func main() {
@@ -19,17 +24,21 @@ func main() {
 }
 
 func Run(args []string) int {
-	if len(args) < 2 {
+	if len(args) < 2 || args[1] == "-h" || args[1] == "--help" || args[1] == "-?" {
 		rootUsage()
-		return 1
+		return 0
 	}
 	cmdStr := args[1]
 	var spec command.CommandSpec
 	switch cmdStr {
 	case "new":
-		spec = &command.NewCommandSpec{Args: os.Args[2:]}
+		spec = &command.NewCommandSpec{Args: args[2:]}
+	case "deploy":
+		spec = &command.DeployCommandSpec{Args: args[2:]}
+	case "config":
+		spec = &command.ConfigCommandSpec{Args: args[2:]}
 	default:
-		utils.PrintErrf("error: unrecognized command %s\n", cmdStr)
+		utils.PrintErrf("error: unrecognized command %s\n\n", cmdStr)
 		rootUsage()
 		return 1
 	}
