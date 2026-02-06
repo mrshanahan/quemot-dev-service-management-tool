@@ -18,8 +18,7 @@ func CreateSshClient(addr string, user string, keyPath string, keyPassphrase str
 
 	key, err := os.ReadFile(keyPath)
 	if err != nil {
-		slog.Error("unable to read private key", "key-path", keyPath, "err", err)
-		return nil, err
+		return nil, fmt.Errorf("unable to read private key %s: %w", keyPath, err)
 	}
 
 	var signer ssh.Signer
@@ -31,8 +30,7 @@ func CreateSshClient(addr string, user string, keyPath string, keyPassphrase str
 	}
 
 	if err != nil {
-		slog.Error("unable to parse private key - ensure the correct passphrase is provided", "key-path", keyPath, "err", err)
-		return nil, err
+		return nil, fmt.Errorf("unable to parse private key - ensure the correct passphrase is provided: %w", err)
 	}
 
 	config := &ssh.ClientConfig{
@@ -47,14 +45,13 @@ func CreateSshClient(addr string, user string, keyPath string, keyPassphrase str
 	if !strings.Contains(addr, ":") {
 		addr = fmt.Sprintf("%s:22", addr)
 	}
-	slog.Debug("dialing ssh server", "addr", addr, "config", config)
+	slog.Info("dialing ssh server", "addr", addr, "config", config)
 
 	client, err := ssh.Dial("tcp", addr, config)
 	if err != nil {
-		slog.Error("unable to connect to remove server", "addr", addr, "config", config, "err", err)
-		return nil, err
+		return nil, fmt.Errorf("unable to connect to remove server: %w", err)
 	}
 
-	slog.Info("successfully dialed ssh server", "addr", addr, "user", config.User)
+	slog.Info("successfully dialed ssh server", "addr", addr, "config", config)
 	return client, nil
 }
