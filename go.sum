@@ -52,6 +52,8 @@ github.com/mrshanahan/deploy-assets v1.3.0 h1:N8Q7UfkHJsVenLno4FQnmLf5a0mStaN2F+
 github.com/mrshanahan/deploy-assets v1.3.0/go.mod h1:2Eb9WW5nFdpH/SlNnUOzW48KjeLBGPSPDn+fDbJTXl0=
 github.com/mrshanahan/deploy-assets v1.4.0 h1:oPQQrXOg1kf6/Tu31PNE8hemyUBF5dXWk4iMJD8k6BM=
 github.com/mrshanahan/deploy-assets v1.4.0/go.mod h1:2Eb9WW5nFdpH/SlNnUOzW48KjeLBGPSPDn+fDbJTXl0=
+github.com/mrshanahan/deploy-assets v1.4.1 h1:QFM7Aow99/Z7NG1fuSs+K08+Wyrh7obAZ6enEweZmp4=
+github.com/mrshanahan/deploy-assets v1.4.1/go.mod h1:2Eb9WW5nFdpH/SlNnUOzW48KjeLBGPSPDn+fDbJTXl0=
 github.com/mrshanahan/quemot-dev-auth-client v1.3.0 h1:GHwZd1igHLpd7MzXs7j2X+Q1A9d1ig84uUNb/asx9vU=
 github.com/mrshanahan/quemot-dev-auth-client v1.3.0/go.mod h1:UlxUfCGCFiSEg29gvsu1wgRRtOCLFqkaZY9XaBaz/Vw=
 github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=
