@@ -1,9 +1,12 @@
 package utils
 
 import (
+	"bufio"
 	"bytes"
 	"fmt"
 	"os"
+	"slices"
+	"strings"
 )
 
 func PrintErrln(msg string) {
@@ -12,6 +15,30 @@ func PrintErrln(msg string) {
 
 func PrintErrf(format string, args ...any) {
 	fmt.Fprintf(os.Stderr, format, args...)
+}
+
+var (
+	promptYes []string = []string{"y", "yes", "ok", "okay", "yep"}
+	promptNo  []string = []string{"n", "no", "nope"}
+)
+
+func BinaryPrompt(prompt string) (bool, error) {
+	fmt.Fprintf(os.Stderr, "%s (y/n) ", prompt)
+	lineScanner := bufio.NewScanner(os.Stdin)
+	var input string
+	for lineScanner.Scan() {
+		input = lineScanner.Text()
+		inputLower := strings.ToLower(input)
+		if slices.Contains(promptYes, inputLower) {
+			return true, nil
+		} else if slices.Contains(promptNo, inputLower) {
+			return false, nil
+		} else {
+			fmt.Fprintf(os.Stderr, "%s (y/n) ", prompt)
+		}
+	}
+
+	return false, fmt.Errorf("no input given")
 }
 
 // dropCR & the definition of ScanLinesOrUntil were basically copied verbatim

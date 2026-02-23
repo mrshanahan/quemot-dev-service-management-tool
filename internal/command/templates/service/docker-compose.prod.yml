@@ -14,3 +14,7 @@ services:
       {{ENVVAR_PREFIX}}_ALLOWED_ORIGINS: https://{{HOSTNAME}}
     volumes:
       - ./data:/app/data
+      - {{NAME}}-secrets:/app/secrets:r
+volumes:
+  {{NAME}}-secrets:
+    external: true

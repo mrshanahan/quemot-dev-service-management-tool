@@ -7,7 +7,22 @@ import (
 	"strings"
 
 	"golang.org/x/crypto/ssh"
+
+	deploy "github.com/mrshanahan/deploy-assets/pkg/config"
+	"github.com/mrshanahan/deploy-assets/pkg/executor"
 )
+
+func CreateSshExecutor(addr string, user string, keyPath string, keyPassphrase string) (deploy.Executor, error) {
+	if !strings.Contains(addr, ":") {
+		addr = fmt.Sprintf("%s:22", addr)
+	}
+	runElevated := true
+	sshExecutor, err := executor.NewSSHExecutor("remote", addr, user, keyPath, keyPassphrase, runElevated)
+	if err != nil {
+		return nil, err
+	}
+	return sshExecutor, nil
+}
 
 func CreateSshClient(addr string, user string, keyPath string, keyPassphrase string) (*ssh.Client, error) {
 	// Significant components of this taken from example in docs:

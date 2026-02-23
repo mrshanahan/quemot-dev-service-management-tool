@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"github.com/mrshanahan/quemot-dev-service-management-tool/internal/utils"
@@ -13,17 +14,20 @@ import (
 const ProjectConfigName string = "smt.json"
 
 type ProjectConfig struct {
-	ProjectDir        string
-	NginxConfFiles    []string
-	Name              string   `json:"name"`
-	Type              string   `json:"type"`
-	ImageNames        []string `json:"image_names"`
-	ImageCompareLabel string   `json:"image_compare_label"`
-	DockerComposePath string   `json:"docker_compose_path"`
-	SystemctlFilesDir string   `json:"systemctl_files_dir"`
-	NginxFilesDir     string   `json:"nginx_files_dir"`
-
-	AdditionalAssets []AdditionalAsset `json:"additional_assets"`
+	ProjectConfigPath   string
+	ProjectDir          string
+	NginxConfFiles      []string
+	Name                string            `json:"name"`
+	Type                string            `json:"type"`
+	ImageNames          []string          `json:"image_names"`
+	ImageCompareLabel   string            `json:"image_compare_label"`
+	DockerComposePath   string            `json:"docker_compose_path"`
+	SystemctlFilesDir   string            `json:"systemctl_files_dir"`
+	NginxFilesDir       string            `json:"nginx_files_dir"`
+	DockerSecretsVolume string            `json:"docker_secrets_volume"`
+	Secrets             []string          `json:"secrets"`
+	Env                 map[string]string `json:"env"`
+	AdditionalAssets    []AdditionalAsset `json:"additional_assets"`
 }
 
 type AdditionalAsset struct {
@@ -36,6 +40,11 @@ type AdditionalAsset struct {
 	Force     bool   `json:"force"`
 }
 
+var (
+	validateVolumePatternString string         = "^[a-zA-Z\\-_0-9]+$"
+	validateVolumePattern       *regexp.Regexp = regexp.MustCompile(validateVolumePatternString)
+)
+
 func LoadProjectConfig(path string) (*ProjectConfig, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -45,7 +54,12 @@ func LoadProjectConfig(path string) (*ProjectConfig, error) {
 	if err != nil {
 		return nil, err
 	}
+	config.ProjectConfigPath = path
 	config.ProjectDir = filepath.Dir(path)
+
+	if !validateVolumePattern.Match([]byte(config.DockerSecretsVolume)) {
+		return nil, fmt.Errorf("invalid Docker secrets volume name (must match /%s/); update the docker_secrets_volume entry in %s and try again", validateVolumePatternString, path)
+	}
 
 	nginxFilesDir := config.NginxFilesDir
 	if nginxFilesDir != "" {
@@ -78,6 +92,17 @@ func parseProjectConfig(data []byte) (*ProjectConfig, error) {
 		return nil, fmt.Errorf("failed to parse project config: %w", err)
 	}
 	return config, nil
+}
+
+func SaveProjectConfig(config *ProjectConfig) error {
+	jsonStr, err := json.Marshal(config)
+	if err != nil {
+		return err
+	}
+	if err := os.WriteFile(config.ProjectConfigPath, []byte(jsonStr), 0744); err != nil {
+		return err
+	}
+	return nil
 }
 
 // Given either a project root directory or a project config path,

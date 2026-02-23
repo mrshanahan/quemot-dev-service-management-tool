@@ -17,6 +17,8 @@ import (
 	"github.com/mrshanahan/deploy-assets/pkg/transport"
 	"github.com/mrshanahan/quemot-dev-service-management-tool/internal/config"
 	"github.com/mrshanahan/quemot-dev-service-management-tool/internal/project"
+	"github.com/mrshanahan/quemot-dev-service-management-tool/internal/secrets"
+	"github.com/mrshanahan/quemot-dev-service-management-tool/internal/sshclient"
 	"github.com/mrshanahan/quemot-dev-service-management-tool/internal/utils"
 )
 
@@ -191,6 +193,17 @@ func (s *DeployCommandSpec) Build() (Command, error) {
 }
 
 func (c *DeployCommand) Invoke() error {
+	if c.projectConfig.DockerSecretsVolume != "" {
+		sshExecutor, err := sshclient.CreateSshExecutor(c.hostname, c.sshUsername, c.sshKeyFilePath, "")
+		if err != nil {
+			return err
+		}
+
+		if _, err := secrets.EnsureSecretsVolume(sshExecutor, c.projectConfig.DockerSecretsVolume, c.dryRun); err != nil {
+			return err
+		}
+	}
+
 	remoteBaseDir := getRemoteProjectDirectory(c)
 	assets, err := buildAssets(remoteBaseDir, c.projectConfig)
 	if err != nil {

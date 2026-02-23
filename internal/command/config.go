@@ -31,10 +31,10 @@ type ConfigCommand struct {
 type ConfigAction int
 
 const (
-	Set ConfigAction = iota
-	Delete
-	Show
-	Validate
+	SetConfig ConfigAction = iota
+	DeleteConfig
+	ShowConfig
+	ValidateConfig
 )
 
 const (
@@ -82,6 +82,11 @@ func (s *ConfigCommandSpec) Build() (Command, error) {
 		false,
 		"If provided, create config file if it does not exist; if not provided, exit with error instead",
 	)
+	setParam := fs.Bool(
+		"set",
+		false,
+		"(action) Set a given server's properties",
+	)
 	deleteParam := fs.Bool(
 		"delete",
 		false,
@@ -119,30 +124,37 @@ func (s *ConfigCommandSpec) Build() (Command, error) {
 
 	server := *serverParam
 	setDefault := *setDefaultParam
-	delete := *deleteParam
-	show := *showParam
-	validate := *validateParam
 
-	if delete && show || delete && validate || validate && show {
-		return nil, fmt.Errorf("only one action can be specified")
+	actionParams := map[ConfigAction]bool{
+		SetConfig:      *setParam,
+		DeleteConfig:   *deleteParam,
+		ShowConfig:     *showParam,
+		ValidateConfig: *validateParam,
 	}
 
-	if delete && server == "" {
-		return nil, fmt.Errorf("-server is required when deleting an entry")
+	var actions []ConfigAction
+	for k, v := range actionParams {
+		if v {
+			actions = append(actions, k)
+		}
 	}
-	if delete && setDefault {
-		return nil, fmt.Errorf("cannot both -delete and -set-default an entry")
+
+	if len(actions) > 1 {
+		return nil, fmt.Errorf("multiple actions specified; please specify at most one")
 	}
 
 	var action ConfigAction
-	if delete {
-		action = Delete
-	} else if show {
-		action = Show
-	} else if validate {
-		action = Validate
+	if len(actions) == 0 {
+		action = ShowConfig
 	} else {
-		action = Set
+		action = actions[0]
+	}
+
+	if action == DeleteConfig && server == "" {
+		return nil, fmt.Errorf("-server is required when deleting an entry")
+	}
+	if action == DeleteConfig && setDefault {
+		return nil, fmt.Errorf("cannot both -delete and -set-default an entry")
 	}
 
 	c := &ConfigCommand{
@@ -167,7 +179,7 @@ func (c *ConfigCommand) Invoke() error {
 		return fmt.Errorf("failed to load config at %s: %w", c.configPath, err)
 	}
 
-	if c.action == Show {
+	if c.action == ShowConfig {
 		server := c.server
 		if server == "" {
 			server = DefaultServerName
@@ -186,7 +198,7 @@ func (c *ConfigCommand) Invoke() error {
 		return nil
 	}
 
-	if c.action == Delete {
+	if c.action == DeleteConfig {
 		if cfg.DefaultServer == c.server {
 			slog.Warn("deleting default server - default server is now unset", "server", c.server)
 			cfg.DefaultServer = ""
@@ -196,7 +208,7 @@ func (c *ConfigCommand) Invoke() error {
 		return config.SaveConfig(c.configPath, cfg)
 	}
 
-	if c.action == Validate {
+	if c.action == ValidateConfig {
 		server := c.server
 		if server == "" {
 			server = DefaultServerName
@@ -215,7 +227,7 @@ func (c *ConfigCommand) Invoke() error {
 		return nil
 	}
 
-	if c.action == Set {
+	if c.action == SetConfig {
 		server := c.server
 		if server == "" {
 			server = DefaultServerName
