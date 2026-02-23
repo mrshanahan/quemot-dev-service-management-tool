@@ -5,12 +5,9 @@ COPY . /app/{{NAME}}
 WORKDIR /app/{{NAME}}
 RUN go build ./cmd/{{NAME}}.go
 
-FROM ubuntu:latest
+FROM quemot-dev/base:latest
 ARG GIT_SHA
 
-# Need to install ca-certificates explicitly to get the LetsEncrypt root cert
-RUN apt update
-RUN apt install ca-certificates -y
 RUN mkdir -p /app
 COPY --from=builder /app/{{NAME}}/{{NAME}} /app/{{NAME}}
 
