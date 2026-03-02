@@ -89,31 +89,9 @@ func (s *SecretsCommandSpec) Build() (Command, error) {
 		"",
 		"Value of the secret to set (if relevant)",
 	)
-	configPathParam := fs.String(
-		"config",
-		"",
-		"Path to deployment config file. Defaults to ~/.config/smt.config.",
-	)
-	serverParam := fs.String(
-		"server",
-		"",
-		"Name of the server to deploy to, matching an entry in the config file. If not provided then directly-provided properties will be used.",
-	)
-	hostnameParam := fs.String(
-		"hostname",
-		"",
-		"Hostname of the server to deploy to. Overrides property in config.",
-	)
-	sshUsernameParam := fs.String(
-		"ssh-username",
-		"",
-		"Username to use for SSH connection. Overrides property in config.",
-	)
-	sshKeyFilePathParam := fs.String(
-		"ssh-key-file",
-		"",
-		"Path to the SSH key file path. Overrides property in config.",
-	)
+
+	serverConfigFlags := UseServerConfigFlags(fs)
+
 	debugParam := fs.Bool("debug", false, "Set log level to debug")
 
 	if err := fs.Parse(s.Args); err != nil {

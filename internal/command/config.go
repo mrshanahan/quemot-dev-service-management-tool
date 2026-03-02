@@ -48,36 +48,8 @@ func (s *ConfigCommandSpec) Build() (Command, error) {
 
 	// TODO: Turn some of these into globals, and abstract out reading from config
 
-	configPathParam := fs.String(
-		"config",
-		"",
-		"Path to deployment config file. Defaults to ~/.config/smt.config.",
-	)
-	serverParam := fs.String(
-		"server",
-		"",
-		"Name of the server whose settings will be configured, corresponding to an entry in the config file. If not provided then will be prompted.",
-	)
-	hostnameParam := fs.String(
-		"hostname",
-		"",
-		"Hostname of the server to deploy to. If not provided then will be prompted.",
-	)
-	sshUsernameParam := fs.String(
-		"ssh-username",
-		"",
-		"Username to use for SSH connection. If not provided then will be prompted.",
-	)
-	sshKeyFilePathParam := fs.String(
-		"ssh-key-file",
-		"",
-		"Path to the SSH key file path. If not provided then will be prompted.",
-	)
-	remoteServiceDirectoryParam := fs.String(
-		"remote-service-directory",
-		"",
-		"Path on the remote server to use as the base directory for smt services. If not provided then will be prompted.",
-	)
+	serverConfigFlags := UseServerConfigFlags(fs)
+
 	setDefaultParam := fs.Bool(
 		"set-default",
 		false,
@@ -119,7 +91,9 @@ func (s *ConfigCommandSpec) Build() (Command, error) {
 		return nil, err
 	}
 
-	configPath := *configPathParam
+	// NB: Not calling ValidateServerConfigFlags here b/c we're not really checking any of them
+
+	configPath := *serverConfigFlags.ConfigPath
 	if configPath == "" {
 		defaultPath, err := config.GetDefaultPath()
 		if err != nil {
@@ -128,7 +102,7 @@ func (s *ConfigCommandSpec) Build() (Command, error) {
 		configPath = defaultPath
 	}
 
-	server := *serverParam
+	server := *serverConfigFlags.Server
 	setDefault := *setDefaultParam
 
 	actionParams := map[ConfigAction]bool{
@@ -166,10 +140,10 @@ func (s *ConfigCommandSpec) Build() (Command, error) {
 	c := &ConfigCommand{
 		configPath:             configPath,
 		server:                 server,
-		hostname:               *hostnameParam,
-		sshUsername:            *sshUsernameParam,
-		sshKeyFilePath:         *sshKeyFilePathParam,
-		remoteServiceDirectory: *remoteServiceDirectoryParam,
+		hostname:               *serverConfigFlags.Hostname,
+		sshUsername:            *serverConfigFlags.SshUsername,
+		sshKeyFilePath:         *serverConfigFlags.SshKeyFilePath,
+		remoteServiceDirectory: *serverConfigFlags.RemoteServiceDirectory,
 		setDefault:             setDefault,
 		force:                  *forceParam,
 		action:                 action,

@@ -15,7 +15,6 @@ import (
 	"github.com/mrshanahan/deploy-assets/pkg/provider"
 	"github.com/mrshanahan/deploy-assets/pkg/runner"
 	"github.com/mrshanahan/deploy-assets/pkg/transport"
-	"github.com/mrshanahan/quemot-dev-service-management-tool/internal/config"
 	"github.com/mrshanahan/quemot-dev-service-management-tool/internal/project"
 	"github.com/mrshanahan/quemot-dev-service-management-tool/internal/secrets"
 	"github.com/mrshanahan/quemot-dev-service-management-tool/internal/sshclient"
@@ -54,41 +53,14 @@ func (s *DeployCommandSpec) Build() (Command, error) {
 		"",
 		"Path to the project to deploy. Defaults to current working directory.",
 	)
-	configPathParam := fs.String(
-		"config",
-		"",
-		"Path to deployment config file. Defaults to ~/.config/smt.config.",
-	)
-	serverParam := fs.String(
-		"server",
-		"",
-		"Name of the server to deploy to, matching an entry in the config file. If not provided then directly-provided properties will be used.",
-	)
-	hostnameParam := fs.String(
-		"hostname",
-		"",
-		"Hostname of the server to deploy to. Overrides property in config.",
-	)
-	sshUsernameParam := fs.String(
-		"ssh-username",
-		"",
-		"Username to use for SSH connection. Overrides property in config.",
-	)
-	sshKeyFilePathParam := fs.String(
-		"ssh-key-file",
-		"",
-		"Path to the SSH key file path. Overrides property in config.",
-	)
-	remoteServiceDirectoryParam := fs.String(
-		"remote-service-directory",
-		"",
-		"Path on the remote server to use as the base directory for smt services. Overrides property in config.",
-	)
 	s3BaseUrlParam := fs.String(
 		"s3-base-url",
 		"s3://quemot-dev-bucket/smt",
 		"Base S3 URL to use for transfers to remote servers.",
 	)
+
+	serverConfigFlags := UseServerConfigFlags(fs)
+
 	showParam := fs.Bool("show", false, "Do not actually copy anything, just show compiled manifest and exit")
 	dryRunParam := fs.Bool("dry-run", false, "Do not actually copy anything, just calculate differences and exit")
 	debugParam := fs.Bool("debug", false, "Set log level to debug")
@@ -110,20 +82,6 @@ func (s *DeployCommandSpec) Build() (Command, error) {
 		slog.SetLogLoggerLevel(slog.LevelInfo)
 	}
 
-	configPath := *configPathParam
-	if configPath == "" {
-		defaultPath, err := config.GetDefaultPath()
-		if err != nil {
-			return nil, fmt.Errorf("could not get default config file path: %w", err)
-		}
-		configPath = defaultPath
-	}
-
-	cfg, err := config.LoadConfig(configPath, true)
-	if err != nil {
-		return nil, fmt.Errorf("failed to load config at %s: %w", configPath, err)
-	}
-
 	path := *pathParam
 	if path == "" {
 		wd, err := os.Getwd()
@@ -140,52 +98,8 @@ func (s *DeployCommandSpec) Build() (Command, error) {
 		return nil, err
 	}
 
-	server := *serverParam
-
-	var serverConfig *config.ServerConfig
-	if server == "" {
-		server = cfg.DefaultServer
-		if server == "" {
-			return nil, fmt.Errorf("no server specified and no default server in config")
-		}
-	}
-	serverCfg, prs := cfg.Servers[server]
-	if !prs {
-		return nil, fmt.Errorf("no server config exists for specified server %s", server)
-	}
-	serverConfig = serverCfg
-
-	hostname := *hostnameParam
-	if hostname == "" {
-		hostname = serverConfig.Hostname
-		if hostname == "" {
-			return nil, fmt.Errorf("no hostname specified for server %s", server)
-		}
-	}
-
-	sshUsername := *sshUsernameParam
-	if sshUsername == "" {
-		sshUsername = serverConfig.SshUsername
-		if sshUsername == "" {
-			return nil, fmt.Errorf("no SSH username specified for server %s", server)
-		}
-	}
-
-	sshKeyFilePath := *sshKeyFilePathParam
-	if sshKeyFilePath == "" {
-		sshKeyFilePath = serverConfig.SshKeyFilePath
-		if sshKeyFilePath == "" {
-			return nil, fmt.Errorf("no SSH key file path specified for server %s", server)
-		}
-	}
-
-	remoteServiceDirectory := *remoteServiceDirectoryParam
-	if remoteServiceDirectory == "" {
-		// This should always be non-empty. It should have a default value of config.DefaultServiceDirectory.
-		remoteServiceDirectory = serverConfig.RemoteServiceDirectory
-		if remoteServiceDirectory == "" {
-			return nil, fmt.Errorf("remote service directory is empty for server %s - this should not happen!", server)
-		}
+	if err := ValidateServerConfigFlags(serverConfigFlags); err != nil {
+		return nil, err
 	}
 
 	s3BaseUrl := *s3BaseUrlParam
@@ -200,10 +114,10 @@ func (s *DeployCommandSpec) Build() (Command, error) {
 
 	return &DeployCommand{
 		projectConfig:          projectConfig,
-		hostname:               hostname,
-		sshUsername:            sshUsername,
-		sshKeyFilePath:         sshKeyFilePath,
-		remoteServiceDirectory: remoteServiceDirectory,
+		hostname:               *serverConfigFlags.Hostname,
+		sshUsername:            *serverConfigFlags.SshUsername,
+		sshKeyFilePath:         *serverConfigFlags.SshKeyFilePath,
+		remoteServiceDirectory: *serverConfigFlags.RemoteServiceDirectory,
 		s3BaseUrl:              s3BaseUrl,
 		dryRun:                 *dryRunParam,
 		show:                   *showParam,
