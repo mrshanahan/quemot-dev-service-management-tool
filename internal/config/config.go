@@ -9,16 +9,21 @@ import (
 	"path/filepath"
 )
 
+const (
+	DefaultRemoteServiceDirectory string = "/usr/local/smt"
+)
+
 type Config struct {
 	DefaultServer string                   `json:"default_server"`
 	Servers       map[string]*ServerConfig `json:"servers"`
 }
 
 type ServerConfig struct {
-	Hostname             string `json:"hostname"`
-	SshKeyFilePath       string `json:"ssh_key_file_path"`
-	SshKeyFilePassphrase string `json:"ssh_key_file_passphrase"`
-	SshUsername          string `json:"ssh_username"`
+	Hostname               string `json:"hostname"`
+	SshKeyFilePath         string `json:"ssh_key_file_path"`
+	SshKeyFilePassphrase   string `json:"ssh_key_file_passphrase"`
+	SshUsername            string `json:"ssh_username"`
+	RemoteServiceDirectory string `json:"service_directory"`
 }
 
 func GetDefaultPath() (string, error) {
@@ -57,7 +62,16 @@ func LoadConfig(path string, force bool) (*Config, error) {
 		return nil, fmt.Errorf("failed to parse config file: %w", err)
 	}
 
+	for _, s := range config.Servers {
+		hydrateServerConfig(s)
+	}
 	return config, nil
+}
+
+func hydrateServerConfig(c *ServerConfig) {
+	if c.RemoteServiceDirectory == "" {
+		c.RemoteServiceDirectory = DefaultRemoteServiceDirectory
+	}
 }
 
 func SaveConfig(path string, c *Config) error {

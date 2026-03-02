@@ -18,14 +18,15 @@ type ConfigCommandSpec struct {
 }
 
 type ConfigCommand struct {
-	configPath     string
-	server         string
-	hostname       string
-	sshKeyFilePath string
-	sshUsername    string
-	setDefault     bool
-	force          bool
-	action         ConfigAction
+	configPath             string
+	server                 string
+	hostname               string
+	sshKeyFilePath         string
+	sshUsername            string
+	remoteServiceDirectory string
+	setDefault             bool
+	force                  bool
+	action                 ConfigAction
 }
 
 type ConfigAction int
@@ -71,6 +72,11 @@ func (s *ConfigCommandSpec) Build() (Command, error) {
 		"ssh-key-file",
 		"",
 		"Path to the SSH key file path. If not provided then will be prompted.",
+	)
+	remoteServiceDirectoryParam := fs.String(
+		"remote-service-directory",
+		"",
+		"Path on the remote server to use as the base directory for smt services. If not provided then will be prompted.",
 	)
 	setDefaultParam := fs.Bool(
 		"set-default",
@@ -158,14 +164,15 @@ func (s *ConfigCommandSpec) Build() (Command, error) {
 	}
 
 	c := &ConfigCommand{
-		configPath:     configPath,
-		server:         server,
-		hostname:       *hostnameParam,
-		sshUsername:    *sshUsernameParam,
-		sshKeyFilePath: *sshKeyFilePathParam,
-		setDefault:     setDefault,
-		force:          *forceParam,
-		action:         action,
+		configPath:             configPath,
+		server:                 server,
+		hostname:               *hostnameParam,
+		sshUsername:            *sshUsernameParam,
+		sshKeyFilePath:         *sshKeyFilePathParam,
+		remoteServiceDirectory: *remoteServiceDirectoryParam,
+		setDefault:             setDefault,
+		force:                  *forceParam,
+		action:                 action,
 	}
 	return c, nil
 }
@@ -190,9 +197,10 @@ func (c *ConfigCommand) Invoke() error {
 			return fmt.Errorf("server %s not found", server)
 		}
 		fmt.Printf("%s:\n", server)
-		fmt.Printf("    hostname:          %s\n", entry.Hostname)
-		fmt.Printf("    ssh_username:      %s\n", entry.SshUsername)
-		fmt.Printf("    ssh_key_file_path: %s\n", entry.SshKeyFilePath)
+		fmt.Printf("    hostname:                 %s\n", entry.Hostname)
+		fmt.Printf("    ssh_username:             %s\n", entry.SshUsername)
+		fmt.Printf("    ssh_key_file_path:        %s\n", entry.SshKeyFilePath)
+		fmt.Printf("    remote_service_directory: %s\n", entry.RemoteServiceDirectory)
 		fmt.Println()
 
 		return nil
@@ -235,11 +243,12 @@ func (c *ConfigCommand) Invoke() error {
 		}
 		entry, prs := cfg.Servers[server]
 
-		var hostname, sshUsername, sshKeyFilePath string
+		var hostname, sshUsername, sshKeyFilePath, remoteServiceDirectory string
 		if prs {
 			hostname = entry.Hostname
 			sshUsername = entry.SshUsername
 			sshKeyFilePath = entry.SshKeyFilePath
+			remoteServiceDirectory = entry.RemoteServiceDirectory
 		} else {
 			entry = &config.ServerConfig{}
 			cfg.Servers[server] = entry
@@ -275,9 +284,20 @@ func (c *ConfigCommand) Invoke() error {
 			sshKeyFilePath = c.sshKeyFilePath
 		}
 
+		if c.remoteServiceDirectory == "" {
+			remoteServiceDirectory, err = getInput("Enter base service directory on remote", entry.RemoteServiceDirectory)
+			if err != nil {
+				// TODO: Wrap it up?
+				return err
+			}
+		} else {
+			remoteServiceDirectory = c.remoteServiceDirectory
+		}
+
 		entry.Hostname = hostname
 		entry.SshUsername = sshUsername
 		entry.SshKeyFilePath = sshKeyFilePath
+		entry.RemoteServiceDirectory = remoteServiceDirectory
 
 		if c.setDefault || cfg.DefaultServer == "" {
 			cfg.DefaultServer = server

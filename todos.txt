@@ -1,0 +1,3 @@
+- Abstract out systemctl services to smt.json
+- Deploy smt itself remotely & use it to detect and manage services
+- Auto-registration of hostnames with Namecheap

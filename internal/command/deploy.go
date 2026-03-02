@@ -27,13 +27,15 @@ type DeployCommandSpec struct {
 }
 
 type DeployCommand struct {
-	projectConfig  *project.ProjectConfig
-	hostname       string
-	sshKeyFilePath string
-	sshUsername    string
-	s3BaseUrl      string
-	dryRun         bool
-	show           bool
+	projectConfig          *project.ProjectConfig
+	hostname               string
+	sshKeyFilePath         string
+	sshUsername            string
+	remoteServiceDirectory string
+	s3BaseUrl              string
+	dryRun                 bool
+	show                   bool
+	force                  bool
 }
 
 const (
@@ -77,6 +79,11 @@ func (s *DeployCommandSpec) Build() (Command, error) {
 		"",
 		"Path to the SSH key file path. Overrides property in config.",
 	)
+	remoteServiceDirectoryParam := fs.String(
+		"remote-service-directory",
+		"",
+		"Path on the remote server to use as the base directory for smt services. Overrides property in config.",
+	)
 	s3BaseUrlParam := fs.String(
 		"s3-base-url",
 		"s3://quemot-dev-bucket/smt",
@@ -85,6 +92,7 @@ func (s *DeployCommandSpec) Build() (Command, error) {
 	showParam := fs.Bool("show", false, "Do not actually copy anything, just show compiled manifest and exit")
 	dryRunParam := fs.Bool("dry-run", false, "Do not actually copy anything, just calculate differences and exit")
 	debugParam := fs.Bool("debug", false, "Set log level to debug")
+	forceParam := fs.Bool("force", false, "Force-create directory structures when necessary. Amounts to setting '\"force\": true' on all file resources.")
 
 	if err := fs.Parse(s.Args); err != nil {
 		if err != flag.ErrHelp {
@@ -140,12 +148,12 @@ func (s *DeployCommandSpec) Build() (Command, error) {
 		if server == "" {
 			return nil, fmt.Errorf("no server specified and no default server in config")
 		}
-		serverCfg, prs := cfg.Servers[server]
-		if !prs {
-			return nil, fmt.Errorf("no server config exists for specified server %s", server)
-		}
-		serverConfig = serverCfg
 	}
+	serverCfg, prs := cfg.Servers[server]
+	if !prs {
+		return nil, fmt.Errorf("no server config exists for specified server %s", server)
+	}
+	serverConfig = serverCfg
 
 	hostname := *hostnameParam
 	if hostname == "" {
@@ -171,6 +179,15 @@ func (s *DeployCommandSpec) Build() (Command, error) {
 		}
 	}
 
+	remoteServiceDirectory := *remoteServiceDirectoryParam
+	if remoteServiceDirectory == "" {
+		// This should always be non-empty. It should have a default value of config.DefaultServiceDirectory.
+		remoteServiceDirectory = serverConfig.RemoteServiceDirectory
+		if remoteServiceDirectory == "" {
+			return nil, fmt.Errorf("remote service directory is empty for server %s - this should not happen!", server)
+		}
+	}
+
 	s3BaseUrl := *s3BaseUrlParam
 	if !strings.HasPrefix(s3BaseUrl, "s3://") {
 		return nil, fmt.Errorf("invalid S3 base URL: '%s' (must start with 's3://')", s3BaseUrl)
@@ -182,13 +199,15 @@ func (s *DeployCommandSpec) Build() (Command, error) {
 	}
 
 	return &DeployCommand{
-		projectConfig:  projectConfig,
-		hostname:       hostname,
-		sshUsername:    sshUsername,
-		sshKeyFilePath: sshKeyFilePath,
-		s3BaseUrl:      s3BaseUrl,
-		dryRun:         *dryRunParam,
-		show:           *showParam,
+		projectConfig:          projectConfig,
+		hostname:               hostname,
+		sshUsername:            sshUsername,
+		sshKeyFilePath:         sshKeyFilePath,
+		remoteServiceDirectory: remoteServiceDirectory,
+		s3BaseUrl:              s3BaseUrl,
+		dryRun:                 *dryRunParam,
+		show:                   *showParam,
+		force:                  *forceParam,
 	}, nil
 }
 
@@ -204,8 +223,8 @@ func (c *DeployCommand) Invoke() error {
 		}
 	}
 
-	remoteBaseDir := getRemoteProjectDirectory(c)
-	assets, err := buildAssets(remoteBaseDir, c.projectConfig)
+	remoteBaseDir := c.remoteServiceDirectory
+	assets, err := buildAssets(remoteBaseDir, c.projectConfig, c.force)
 	if err != nil {
 		return fmt.Errorf("failed to build manifest assets list: %w", err)
 	}
@@ -253,15 +272,35 @@ func buildManifest(c *DeployCommand, assets []*deploy.ProviderConfig) (*manifest
 	return m, nil
 }
 
-func buildAssets(remoteDir string, c *project.ProjectConfig) ([]*deploy.ProviderConfig, error) {
+func buildAssets(remoteDir string, c *project.ProjectConfig, force bool) ([]*deploy.ProviderConfig, error) {
 	assets := []*deploy.ProviderConfig{}
 	dockerComposeAsset := &deploy.ProviderConfig{
-		Provider:     provider.NewFileProvider("docker-compose-file", c.ProjectDir, c.DockerComposePath, filepath.Join(remoteDir, "docker-compose.yml"), false, false),
+		Provider:     provider.NewFileProvider("docker-compose-file", c.ProjectDir, c.DockerComposePath, filepath.Join(remoteDir, "docker-compose.yml"), false, force),
 		Src:          LOCAL_SERVER_NAME,
 		Dst:          REMOTE_SERVER_NAME,
 		PostCommands: []*deploy.PostCommand{},
 	}
 	assets = append(assets, dockerComposeAsset)
+
+	remoteSystemctlDir := filepath.Join(remoteDir, "systemctl")
+	// enableSystemctlServicesCommand := fmt.Sprintf("systemctl enable %s --now && systemctl enable %s --now",
+	// 	filepath.Join(remoteSystemctlDir, "*.service"),
+	// 	filepath.Join(remoteSystemctlDir, "*.timer"))
+	// TODO: Make this smarter, and abstract out service registration
+	enableSystemctlServicesCommand := fmt.Sprintf("systemctl enable %s --now",
+		filepath.Join(remoteSystemctlDir, "*.service"))
+	systemctlInstallFilesAsset := &deploy.ProviderConfig{
+		Provider: provider.NewFileProvider("systemctl-install-files", c.ProjectDir, c.SystemctlFilesDir, remoteSystemctlDir, true, force),
+		Src:      LOCAL_SERVER_NAME,
+		Dst:      REMOTE_SERVER_NAME,
+		PostCommands: []*deploy.PostCommand{
+			{
+				Command: enableSystemctlServicesCommand,
+				Trigger: "on_changed",
+			},
+		},
+	}
+	assets = append(assets, systemctlInstallFilesAsset)
 
 	systemctlServiceName := fmt.Sprintf("%s.service", c.Name)
 	dockerImagesAsset := &deploy.ProviderConfig{
@@ -277,23 +316,6 @@ func buildAssets(remoteDir string, c *project.ProjectConfig) ([]*deploy.Provider
 	}
 	assets = append(assets, dockerImagesAsset)
 
-	remoteSystemctlDir := filepath.Join(remoteDir, "systemctl")
-	enableSystemctlServicesCommand := fmt.Sprintf("systemctl enable %s --now && systemctl enable %s --now",
-		filepath.Join(remoteSystemctlDir, "*.service"),
-		filepath.Join(remoteSystemctlDir, "*.timer"))
-	systemctlInstallFilesAsset := &deploy.ProviderConfig{
-		Provider: provider.NewFileProvider("systemctl-install-files", c.ProjectDir, c.SystemctlFilesDir, remoteSystemctlDir, true, false),
-		Src:      LOCAL_SERVER_NAME,
-		Dst:      REMOTE_SERVER_NAME,
-		PostCommands: []*deploy.PostCommand{
-			{
-				Command: enableSystemctlServicesCommand,
-				Trigger: "on_changed",
-			},
-		},
-	}
-	assets = append(assets, systemctlInstallFilesAsset)
-
 	if c.NginxConfFiles != nil {
 		remoteNginxSitesAvailable := "/etc/nginx/sites-available"
 		remoteNginxSitesEnabled := "/etc/nginx/sites-enabled"
@@ -304,7 +326,7 @@ func buildAssets(remoteDir string, c *project.ProjectConfig) ([]*deploy.Provider
 			remoteAvailablePath := filepath.Join(remoteNginxSitesAvailable, filepath.Base(f))
 			remoteEnabledPath := filepath.Join(remoteNginxSitesEnabled, filepath.Base(f))
 			confFileAsset := &deploy.ProviderConfig{
-				Provider: provider.NewFileProvider(fmt.Sprintf("nginx-conf-files-%02d", i+1), c.ProjectDir, f, remoteAvailablePath, false, false),
+				Provider: provider.NewFileProvider(fmt.Sprintf("nginx-conf-files-%02d", i+1), c.ProjectDir, f, remoteAvailablePath, false, force),
 				Src:      LOCAL_SERVER_NAME,
 				Dst:      REMOTE_SERVER_NAME,
 				PostCommands: []*deploy.PostCommand{
@@ -336,10 +358,4 @@ func buildAssets(remoteDir string, c *project.ProjectConfig) ([]*deploy.Provider
 	}
 
 	return assets, nil
-}
-
-// TODO: Make this a general config instead of assuming from SSH username
-// TODO: OR make this a formal install directory, e.g. /usr/local/smt/<project>
-func getRemoteProjectDirectory(c *DeployCommand) string {
-	return filepath.Join("/home", c.sshUsername, ".smt", c.projectConfig.Name)
 }
