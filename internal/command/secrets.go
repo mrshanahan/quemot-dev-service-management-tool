@@ -13,7 +13,6 @@ import (
 	"strings"
 
 	"github.com/mrshanahan/go-utils/term"
-	"github.com/mrshanahan/quemot-dev-service-management-tool/internal/config"
 	"github.com/mrshanahan/quemot-dev-service-management-tool/internal/project"
 	"github.com/mrshanahan/quemot-dev-service-management-tool/internal/secrets"
 	"github.com/mrshanahan/quemot-dev-service-management-tool/internal/sshclient"
@@ -90,7 +89,7 @@ func (s *SecretsCommandSpec) Build() (Command, error) {
 		"Value of the secret to set (if relevant)",
 	)
 
-	serverConfigFlags := UseServerConfigFlags(fs)
+	serverConfigFlags := UseServerConfigFlags(fs, "hostname", "ssh-username", "ssh-key-file")
 
 	debugParam := fs.Bool("debug", false, "Set log level to debug")
 
@@ -110,22 +109,6 @@ func (s *SecretsCommandSpec) Build() (Command, error) {
 		slog.SetLogLoggerLevel(slog.LevelInfo)
 	}
 
-	configPath := *configPathParam
-	if configPath == "" {
-		defaultPath, err := config.GetDefaultPath()
-		if err != nil {
-			return nil, fmt.Errorf("could not get default config file path: %w", err)
-		}
-		configPath = defaultPath
-	}
-
-	slog.Debug("loading config", "path", configPath)
-
-	cfg, err := config.LoadConfig(configPath, true)
-	if err != nil {
-		return nil, fmt.Errorf("failed to load config at %s: %w", configPath, err)
-	}
-
 	path := *pathParam
 	if path == "" {
 		wd, err := os.Getwd()
@@ -142,43 +125,8 @@ func (s *SecretsCommandSpec) Build() (Command, error) {
 		return nil, err
 	}
 
-	server := *serverParam
-
-	var serverConfig *config.ServerConfig
-	if server == "" {
-		server = cfg.DefaultServer
-		if server == "" {
-			return nil, fmt.Errorf("no server specified and no default server in config")
-		}
-		serverCfg, prs := cfg.Servers[server]
-		if !prs {
-			return nil, fmt.Errorf("no server config exists for specified server %s", server)
-		}
-		serverConfig = serverCfg
-	}
-
-	hostname := *hostnameParam
-	if hostname == "" {
-		hostname = serverConfig.Hostname
-		if hostname == "" {
-			return nil, fmt.Errorf("no hostname specified for server %s", server)
-		}
-	}
-
-	sshUsername := *sshUsernameParam
-	if sshUsername == "" {
-		sshUsername = serverConfig.SshUsername
-		if sshUsername == "" {
-			return nil, fmt.Errorf("no SSH username specified for server %s", server)
-		}
-	}
-
-	sshKeyFilePath := *sshKeyFilePathParam
-	if sshKeyFilePath == "" {
-		sshKeyFilePath = serverConfig.SshKeyFilePath
-		if sshKeyFilePath == "" {
-			return nil, fmt.Errorf("no SSH key file path specified for server %s", server)
-		}
+	if err := ValidateServerConfigFlags(serverConfigFlags); err != nil {
+		return nil, err
 	}
 
 	actionParams := map[SecretAction]bool{
@@ -236,9 +184,9 @@ func (s *SecretsCommandSpec) Build() (Command, error) {
 		valueSet:       valueSet,
 		value:          *valueParam,
 		action:         action,
-		hostname:       hostname,
-		sshKeyFilePath: sshKeyFilePath,
-		sshUsername:    sshUsername,
+		hostname:       *serverConfigFlags.Hostname,
+		sshKeyFilePath: *serverConfigFlags.SshKeyFilePath,
+		sshUsername:    *serverConfigFlags.SshUsername,
 	}, nil
 }
 
