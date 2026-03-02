@@ -9,8 +9,12 @@ import (
 	"path/filepath"
 )
 
+// TODO: Change up how this works so that remote service directory
+// is read from remote server instead of local config.
+
 const (
 	DefaultRemoteServiceDirectory string = "/usr/local/smt"
+	RemoteConfigPath              string = "/etc/smt/config.json"
 )
 
 type Config struct {
