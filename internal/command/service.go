@@ -7,8 +7,11 @@ import (
 
 	"github.com/mrshanahan/deploy-assets/pkg/config"
 	"github.com/mrshanahan/deploy-assets/pkg/executor"
+	"github.com/mrshanahan/quemot-dev-service-management-tool/internal/install"
 	"github.com/mrshanahan/quemot-dev-service-management-tool/internal/sshclient"
 	"github.com/mrshanahan/quemot-dev-service-management-tool/internal/utils"
+
+	serverconfig "github.com/mrshanahan/quemot-dev-service-management-tool/internal/config"
 )
 
 type ServiceCommandSpec struct {
@@ -111,7 +114,6 @@ func (s *ServiceCommandSpec) Build() (Command, error) {
 		cmd.hostname = *serverConfigFlags.Hostname
 		cmd.sshUsername = *serverConfigFlags.SshUsername
 		cmd.sshKeyFilePath = *serverConfigFlags.SshKeyFilePath
-		cmd.remoteServiceDirectory = *serverConfigFlags.RemoteServiceDirectory
 	}
 
 	actionParams := map[ServiceAction]bool{
@@ -161,6 +163,25 @@ func (c *ServiceCommand) Invoke() error {
 			return err
 		}
 		exec = sshExec
+	}
+
+	serverConfig, err := serverconfig.LoadRemoteServerConfig(exec, install.DefaultConfigFilePath, false)
+	if err != nil {
+		return err
+	}
+
+	switch c.action {
+	case ListServices:
+		values := []map[string]string{}
+		for k, v := range serverConfig.Services {
+			values = append(values, map[string]string{
+				"NAME": k,
+				"PATH": v,
+			})
+		}
+		fmt.Println(utils.BuildTable([]string{"NAME", "PATH"}, values))
+	default:
+		fmt.Println("not supported yet! Sorry!")
 	}
 
 	// TODO: How do we determine where these things live locally?

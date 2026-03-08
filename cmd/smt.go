@@ -14,8 +14,10 @@ func rootUsage() {
 	utils.PrintErrln("    Commands:")
 	utils.PrintErrf("        new		Create a new project from a template\n")
 	utils.PrintErrf("        deploy		Deploy an existing project to a remote server\n")
-	utils.PrintErrf("        config		Configure connections to remove servers\n")
+	utils.PrintErrf("        config		Configure connections to remote servers\n")
 	utils.PrintErrf("        secrets	Manage secrets for an existing project\n")
+	utils.PrintErrf("        install	Install this executable on a remote server\n")
+	utils.PrintErrf("        service	View and manage deployed services\n")
 	utils.PrintErrln("")
 }
 
@@ -40,6 +42,10 @@ func Run(args []string) int {
 		spec = &command.ConfigCommandSpec{Args: args[2:]}
 	case "secrets":
 		spec = &command.SecretsCommandSpec{Args: args[2:]}
+	case "install":
+		spec = &command.InstallCommandSpec{Args: args[2:]}
+	case "service":
+		spec = &command.ServiceCommandSpec{Args: args[2:]}
 	default:
 		utils.PrintErrf("error: unrecognized command %s\n\n", cmdStr)
 		rootUsage()

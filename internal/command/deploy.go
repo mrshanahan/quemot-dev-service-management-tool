@@ -15,6 +15,8 @@ import (
 	"github.com/mrshanahan/deploy-assets/pkg/provider"
 	"github.com/mrshanahan/deploy-assets/pkg/runner"
 	"github.com/mrshanahan/deploy-assets/pkg/transport"
+	"github.com/mrshanahan/quemot-dev-service-management-tool/internal/config"
+	"github.com/mrshanahan/quemot-dev-service-management-tool/internal/install"
 	"github.com/mrshanahan/quemot-dev-service-management-tool/internal/project"
 	"github.com/mrshanahan/quemot-dev-service-management-tool/internal/secrets"
 	"github.com/mrshanahan/quemot-dev-service-management-tool/internal/sshclient"
@@ -26,15 +28,14 @@ type DeployCommandSpec struct {
 }
 
 type DeployCommand struct {
-	projectConfig          *project.ProjectConfig
-	hostname               string
-	sshKeyFilePath         string
-	sshUsername            string
-	remoteServiceDirectory string
-	s3BaseUrl              string
-	dryRun                 bool
-	show                   bool
-	force                  bool
+	projectConfig  *project.ProjectConfig
+	hostname       string
+	sshKeyFilePath string
+	sshUsername    string
+	s3BaseUrl      string
+	dryRun         bool
+	show           bool
+	force          bool
 }
 
 const (
@@ -113,31 +114,39 @@ func (s *DeployCommandSpec) Build() (Command, error) {
 	}
 
 	return &DeployCommand{
-		projectConfig:          projectConfig,
-		hostname:               *serverConfigFlags.Hostname,
-		sshUsername:            *serverConfigFlags.SshUsername,
-		sshKeyFilePath:         *serverConfigFlags.SshKeyFilePath,
-		remoteServiceDirectory: *serverConfigFlags.RemoteServiceDirectory,
-		s3BaseUrl:              s3BaseUrl,
-		dryRun:                 *dryRunParam,
-		show:                   *showParam,
-		force:                  *forceParam,
+		projectConfig:  projectConfig,
+		hostname:       *serverConfigFlags.Hostname,
+		sshUsername:    *serverConfigFlags.SshUsername,
+		sshKeyFilePath: *serverConfigFlags.SshKeyFilePath,
+		s3BaseUrl:      s3BaseUrl,
+		dryRun:         *dryRunParam,
+		show:           *showParam,
+		force:          *forceParam,
 	}, nil
 }
 
 func (c *DeployCommand) Invoke() error {
-	if c.projectConfig.DockerSecretsVolume != "" {
-		sshExecutor, err := sshclient.CreateSshExecutor(c.hostname, c.sshUsername, c.sshKeyFilePath, "")
-		if err != nil {
-			return err
-		}
+	sshExecutor, err := sshclient.CreateSshExecutor(c.hostname, c.sshUsername, c.sshKeyFilePath, "")
+	if err != nil {
+		return err
+	}
 
+	if c.projectConfig.DockerSecretsVolume != "" {
 		if _, err := secrets.EnsureSecretsVolume(sshExecutor, c.projectConfig.DockerSecretsVolume, c.dryRun); err != nil {
 			return err
 		}
 	}
 
-	remoteBaseDir := c.remoteServiceDirectory
+	serverConfig, err := config.LoadRemoteServerConfig(sshExecutor, install.DefaultConfigFilePath, true)
+	if err != nil {
+		return err
+	}
+	servicePath, prs := serverConfig.Services[c.projectConfig.Name]
+	if !prs {
+		servicePath = filepath.Join(install.DefaultServicesDir, c.projectConfig.Name)
+		slog.Debug("service entry does not exist in server config; using default path", "name", c.projectConfig.Name, "new-path", servicePath)
+	}
+	remoteBaseDir := servicePath
 	assets, err := buildAssets(remoteBaseDir, c.projectConfig, c.force)
 	if err != nil {
 		return fmt.Errorf("failed to build manifest assets list: %w", err)
@@ -161,7 +170,19 @@ func (c *DeployCommand) Invoke() error {
 		return nil
 	}
 
-	return runner.Execute(manifest, c.dryRun, false)
+	if err := runner.Execute(manifest, c.dryRun, false); err != nil {
+		return err
+	}
+
+	if !c.dryRun {
+		slog.Debug("updating server config with new service path", "path", servicePath)
+		serverConfig.Services[c.projectConfig.Name] = servicePath
+		if err := config.SaveRemoteServerConfig(sshExecutor, install.DefaultConfigFilePath, serverConfig); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func buildManifest(c *DeployCommand, assets []*deploy.ProviderConfig) (*manifest.Manifest, error) {

@@ -42,6 +42,16 @@ github.com/mattn/go-runewidth v0.0.16 h1:E5ScNMtiwvlvB5paMFdw9p4kSQzbXFikJ5SQO6T
 github.com/mattn/go-runewidth v0.0.16/go.mod h1:Jdepj2loyihRzMpdS35Xk/zdY8IAYHsh153qUoGf23w=
 github.com/mrshanahan/deploy-assets v1.4.1 h1:QFM7Aow99/Z7NG1fuSs+K08+Wyrh7obAZ6enEweZmp4=
 github.com/mrshanahan/deploy-assets v1.4.1/go.mod h1:2Eb9WW5nFdpH/SlNnUOzW48KjeLBGPSPDn+fDbJTXl0=
+github.com/mrshanahan/deploy-assets v1.4.2 h1:RMQeFTn87tBCJBGVopyv5UEscmRsk8i0J2aNaaoPifU=
+github.com/mrshanahan/deploy-assets v1.4.2/go.mod h1:2Eb9WW5nFdpH/SlNnUOzW48KjeLBGPSPDn+fDbJTXl0=
+github.com/mrshanahan/deploy-assets v1.4.3 h1:ZZBNFRm47/Mr3twD5KiQ1Ron0UyG9rZsenS7GK/+xLc=
+github.com/mrshanahan/deploy-assets v1.4.3/go.mod h1:2Eb9WW5nFdpH/SlNnUOzW48KjeLBGPSPDn+fDbJTXl0=
+github.com/mrshanahan/deploy-assets v1.4.4 h1:9uRYjwi4GxEYqxkIo1D3uM4G1uzEba3HV0xruxLNjC0=
+github.com/mrshanahan/deploy-assets v1.4.4/go.mod h1:2Eb9WW5nFdpH/SlNnUOzW48KjeLBGPSPDn+fDbJTXl0=
+github.com/mrshanahan/deploy-assets v1.4.5 h1:S4NU+Q3YXC84bfJfYRXFPwYylmu2xRH7HEdmAKUj/Cs=
+github.com/mrshanahan/deploy-assets v1.4.5/go.mod h1:2Eb9WW5nFdpH/SlNnUOzW48KjeLBGPSPDn+fDbJTXl0=
+github.com/mrshanahan/deploy-assets v1.4.6 h1:hFqiMUWRUyRjYce0k0sFYqPbPhrJ2OQKbLXwNRe0xbY=
+github.com/mrshanahan/deploy-assets v1.4.6/go.mod h1:2Eb9WW5nFdpH/SlNnUOzW48KjeLBGPSPDn+fDbJTXl0=
 github.com/mrshanahan/go-utils v0.1.0 h1:VLKr7zdilHj/UkHGUAo0wShz82XwGfzHPxJWpS/0KRo=
 github.com/mrshanahan/go-utils v0.1.0/go.mod h1:waIMbDITNikkYiPNg5OfERSy+KvF0PjpkMgZdzqgAlA=
 github.com/mrshanahan/quemot-dev-auth-client v1.3.0 h1:GHwZd1igHLpd7MzXs7j2X+Q1A9d1ig84uUNb/asx9vU=

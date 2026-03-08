@@ -64,7 +64,7 @@ func CreateSshClient(addr string, user string, keyPath string, keyPassphrase str
 
 	client, err := ssh.Dial("tcp", addr, config)
 	if err != nil {
-		return nil, fmt.Errorf("unable to connect to remove server: %w", err)
+		return nil, fmt.Errorf("unable to connect to remote server: %w", err)
 	}
 
 	slog.Info("successfully dialed ssh server", "addr", addr, "config", config)

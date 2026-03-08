@@ -5,6 +5,51 @@ import (
 	"testing"
 )
 
+func TestBuildTable(t *testing.T) {
+	cases := []struct {
+		headers  []string
+		values   []map[string]string
+		expected string
+	}{
+		{
+			[]string{"header1", "header2", "header3"},
+			[]map[string]string{
+				{
+					"header1": "x",
+					"header2": "y",
+				},
+				{
+					"header1": "longonehere",
+					"header2": "abc",
+					"header3": "boop",
+				},
+				{
+					"header2": "longonehere123",
+					"header3": "boop",
+				},
+			},
+			`
+header1     header2        header3
+-------     -------        -------
+x           y                     
+longonehere abc            boop   
+            longonehere123 boop   
+`,
+		},
+	}
+
+	for _, c := range cases {
+		t.Run("", func(s *testing.T) {
+			s.Parallel()
+			actual := BuildTable(c.headers, c.values)
+			trueExpected := strings.TrimLeft(c.expected, "\n")
+			if actual != trueExpected {
+				s.Errorf("results not equal; got:\n%s\nexpected:\n%s", actual, trueExpected)
+			}
+		})
+	}
+}
+
 func TestBuildComparisonTable(t *testing.T) {
 	cases := []struct {
 		hx       string

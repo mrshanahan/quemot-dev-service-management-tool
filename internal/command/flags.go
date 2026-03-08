@@ -9,12 +9,11 @@ import (
 )
 
 type ServerConfigFlags struct {
-	ConfigPath             *string
-	Server                 *string
-	Hostname               *string
-	SshUsername            *string
-	SshKeyFilePath         *string
-	RemoteServiceDirectory *string
+	ConfigPath     *string
+	Server         *string
+	Hostname       *string
+	SshUsername    *string
+	SshKeyFilePath *string
 }
 
 func UseServerConfigFlags(fs *flag.FlagSet, include ...string) *ServerConfigFlags {
@@ -50,13 +49,6 @@ func UseServerConfigFlags(fs *flag.FlagSet, include ...string) *ServerConfigFlag
 			"Path to the SSH key file path. Overrides property in config.",
 		)
 	}
-	if len(include) == 0 || slices.Contains(include, "remote-service-directory") {
-		flags.RemoteServiceDirectory = fs.String(
-			"remote-service-directory",
-			"",
-			"Path on the remote server to use as the base directory for smt services. Overrides property in config.",
-		)
-	}
 
 	return flags
 }
@@ -64,21 +56,21 @@ func UseServerConfigFlags(fs *flag.FlagSet, include ...string) *ServerConfigFlag
 func ValidateServerConfigFlags(s *ServerConfigFlags) error {
 	configPath := *s.ConfigPath
 	if configPath == "" {
-		defaultPath, err := config.GetDefaultPath()
+		defaultPath, err := config.GetDefaultClientConfigPath()
 		if err != nil {
 			return fmt.Errorf("could not get default config file path: %w", err)
 		}
 		configPath = defaultPath
 	}
 
-	cfg, err := config.LoadConfig(configPath, true)
+	cfg, err := config.LoadClientConfig(configPath, true)
 	if err != nil {
 		return fmt.Errorf("failed to load config at %s: %w", configPath, err)
 	}
 
 	server := *s.Server
 
-	var serverConfig *config.ServerConfig
+	var serverConfig *config.ClientServerConfigEntry
 	if server == "" {
 		server = cfg.DefaultServer
 		if server == "" {
@@ -124,18 +116,6 @@ func ValidateServerConfigFlags(s *ServerConfigFlags) error {
 			}
 		}
 		*s.SshKeyFilePath = sshKeyFilePath
-	}
-
-	if s.RemoteServiceDirectory != nil {
-		remoteServiceDirectory := *s.RemoteServiceDirectory
-		if remoteServiceDirectory == "" {
-			// This should always be non-empty. It should have a default value of config.DefaultServiceDirectory.
-			remoteServiceDirectory = serverConfig.RemoteServiceDirectory
-			if remoteServiceDirectory == "" {
-				return fmt.Errorf("remote service directory is empty for server %s - this should not happen!", server)
-			}
-		}
-		*s.RemoteServiceDirectory = remoteServiceDirectory
 	}
 
 	return nil

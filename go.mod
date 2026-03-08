@@ -5,7 +5,7 @@ go 1.25.1
 require (
 	github.com/gofiber/fiber/v2 v2.52.10
 	github.com/google/uuid v1.6.0
-	github.com/mrshanahan/deploy-assets v1.4.1
+	github.com/mrshanahan/deploy-assets v1.4.6
 	github.com/mrshanahan/quemot-dev-auth-client v1.3.0
 	golang.org/x/crypto v0.43.0
 	golang.org/x/oauth2 v0.34.0

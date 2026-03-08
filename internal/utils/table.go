@@ -11,6 +11,72 @@ func spaces(n int) string {
 	return strings.Repeat(" ", n)
 }
 
+func BuildTable(headers []string, values []map[string]string) string {
+	builder := strings.Builder{}
+	writef := func(format string, a ...any) {
+		builder.WriteString(fmt.Sprintf(format, a...))
+	}
+
+	headerLengths := map[string]int{}
+	columnWidths := map[string]int{}
+
+	for _, h := range headers {
+		headerLengths[h] = len(h)
+
+		var maxValueWidth int
+		if len(values) > 0 {
+			maxValueWidth = slices.Max(
+				Map(
+					values,
+					func(v map[string]string) int { return len(v[h]) },
+				),
+			)
+		} else {
+			maxValueWidth = 0
+		}
+		columnWidths[h] = IntMax(maxValueWidth, len(h))
+	}
+
+	// headers
+	for i, h := range headers {
+		postHeaderWs := columnWidths[h] - len(h)
+		if i < len(headers)-1 {
+			writef("%s%s ", h, spaces(postHeaderWs))
+		} else {
+			writef("%s%s\n", h, spaces(postHeaderWs))
+		}
+	}
+
+	// dashes under headers
+	for i, h := range headers {
+		postHeaderWs := columnWidths[h] - len(h)
+		if i < len(headers)-1 {
+			writef("%s%s ",
+				strings.Repeat("-", len(h)),
+				spaces(postHeaderWs))
+		} else {
+			writef("%s%s\n",
+				strings.Repeat("-", len(h)),
+				spaces(postHeaderWs))
+		}
+	}
+
+	// one row at a time
+	for _, row := range values {
+		for i, h := range headers {
+			v := row[h]
+			postValueWs := columnWidths[h] - len(v)
+			if i < len(headers)-1 {
+				writef("%s%s ", v, spaces(postValueWs))
+			} else {
+				writef("%s%s\n", v, spaces(postValueWs))
+			}
+		}
+	}
+
+	return builder.String()
+}
+
 func BuildComparisonTable(xheader string, xs []string, yheader string, ys []string) string {
 	builder := strings.Builder{}
 	writef := func(format string, a ...any) {
