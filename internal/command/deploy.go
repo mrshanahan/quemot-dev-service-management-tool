@@ -189,7 +189,7 @@ func (c *DeployCommand) Invoke() error {
 			return err
 		}
 		if serviceConfig == nil {
-			serviceConfig = &service.ServiceConfig{Commands: make(map[string]string)}
+			serviceConfig = service.NewServiceConfig()
 		}
 		serviceConfig.Commands = c.projectConfig.Commands
 		if err := serverConfig.SaveServiceConfig(sshExecutor, c.projectConfig.Name, serviceConfig); err != nil {
