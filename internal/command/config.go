@@ -41,6 +41,8 @@ const (
 	DefaultServerName string = "default"
 )
 
+// TODO: Consolidate this with install command
+
 func (s *ConfigCommandSpec) Build() (Command, error) {
 	fs := flag.NewFlagSet("config", flag.ContinueOnError)
 	fs.SetOutput(&EmptyWriter{})

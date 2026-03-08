@@ -22,6 +22,7 @@ type ProjectConfig struct {
 	ImageNames          []string          `json:"image_names"`
 	ImageCompareLabel   string            `json:"image_compare_label"`
 	DockerComposePath   string            `json:"docker_compose_path"`
+	Commands            map[string]string `json:"commands"`
 	SystemctlFilesDir   string            `json:"systemctl_files_dir"`
 	NginxFilesDir       string            `json:"nginx_files_dir"`
 	DockerSecretsVolume string            `json:"docker_secrets_volume"`

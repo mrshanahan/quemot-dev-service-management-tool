@@ -180,6 +180,17 @@ func (c *DeployCommand) Invoke() error {
 		if err := config.SaveServerConfig(sshExecutor, install.DefaultConfigFilePath, serverConfig); err != nil {
 			return err
 		}
+
+		// TODO: Put this into manifest via new "literal" asset
+		slog.Debug("updating service config", "path", servicePath)
+		serviceConfig, err := serverConfig.LoadServiceConfig(sshExecutor, c.projectConfig.Name)
+		if err != nil {
+			return err
+		}
+		serviceConfig.Commands = c.projectConfig.Commands
+		if err := serverConfig.SaveServiceConfig(sshExecutor, c.projectConfig.Name, serviceConfig); err != nil {
+			return err
+		}
 	}
 
 	return nil

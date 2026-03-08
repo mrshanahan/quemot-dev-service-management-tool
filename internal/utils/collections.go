@@ -37,3 +37,11 @@ func Map[S any, T any](xs []S, f func(S) T) []T {
 	}
 	return ys
 }
+
+func InvertMap[K comparable, V comparable](m map[K]V) map[V]K {
+	n := map[V]K{}
+	for k, v := range m {
+		n[v] = k
+	}
+	return n
+}

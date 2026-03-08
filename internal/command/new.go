@@ -6,25 +6,29 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"path/filepath"
 	"regexp"
 	"slices"
 	"strings"
 
 	"github.com/google/uuid"
 	"github.com/mrshanahan/quemot-dev-service-management-tool/internal/file"
+	"github.com/mrshanahan/quemot-dev-service-management-tool/internal/project"
 	"github.com/mrshanahan/quemot-dev-service-management-tool/internal/utils"
 )
 
 type ProjectType int
 
 const (
-	SERVICE ProjectType = iota
+	Service ProjectType = iota
 )
 
 var (
 	SUPPORTED_PROJECT_TYPES map[string]ProjectType = map[string]ProjectType{
-		"service": SERVICE,
+		"service": Service,
 	}
+
+	SUPPORTED_PROJECT_TYPE_NAMES map[ProjectType]string = utils.InvertMap(SUPPORTED_PROJECT_TYPES)
 
 	SUPPORTED_PROJECT_TYPES_STR string = strings.Join(utils.Keys(SUPPORTED_PROJECT_TYPES), ", ")
 
@@ -158,7 +162,7 @@ func (c *NewCommand) Invoke() error {
 	}
 
 	switch c.projectType {
-	case SERVICE:
+	case Service:
 		if err := os.MkdirAll(c.path, 0o700); err != nil {
 			return err
 		}
@@ -170,7 +174,10 @@ func (c *NewCommand) Invoke() error {
 
 		envVarPrefix := strings.ReplaceAll(strings.ToUpper(c.name), "-", "_")
 		dockerImageName := fmt.Sprintf("quemot-dev/%s", c.name)
+		dockerImageCompareLabel := fmt.Sprintf("dev.quemot.%s.image.sha", c.name)
+		dockerSecretsVolume := fmt.Sprintf("%s-secrets", c.name)
 		hostname := fmt.Sprintf("%s.%s", c.name, domain)
+		systemctlServiceName := fmt.Sprintf("%s.service", c.name)
 		variables := map[string]file.VariableValue{
 			"NEW_GUID()":        file.VarFunc(func() string { return uuid.NewString() }),
 			"NAME":              file.VarValue(c.name),
@@ -210,6 +217,29 @@ func (c *NewCommand) Invoke() error {
 		if _, _, err := utils.ExecuteCommandInDir(c.path, "go", "mod", "tidy"); err != nil {
 			return fmt.Errorf("failed to tidy go module: %w", err)
 		}
+
+		// TODO: Figure out what to do with the project config path here.
+		// It's awkward that it's embedded in the struct.
+		projectConfigPath := filepath.Join(c.path, "smt.json")
+		projectConfig := &project.ProjectConfig{
+			ProjectConfigPath:   projectConfigPath,
+			Name:                c.name,
+			Type:                SUPPORTED_PROJECT_TYPE_NAMES[c.projectType],
+			ImageNames:          []string{dockerImageName},
+			ImageCompareLabel:   dockerImageCompareLabel,
+			DockerComposePath:   "docker-compose.prod.yml",
+			SystemctlFilesDir:   "install",
+			NginxFilesDir:       "nginx",
+			DockerSecretsVolume: dockerSecretsVolume,
+			Commands: map[string]string{
+				"start":   fmt.Sprintf("systemctl start %s", systemctlServiceName),
+				"stop":    fmt.Sprintf("systemctl stop %s", systemctlServiceName),
+				"restart": fmt.Sprintf("systemctl restart %s", systemctlServiceName),
+				"status":  fmt.Sprintf("systemctl status %s", systemctlServiceName),
+			},
+		}
+
+		project.SaveProjectConfig(projectConfig)
 	}
 	return nil
 }

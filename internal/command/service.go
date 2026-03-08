@@ -35,7 +35,17 @@ const (
 	StartService
 	StopService
 	RestartService
+	GetServiceStatus
 	RemoveService
+)
+
+var (
+	ActionNames map[ServiceAction]string = map[ServiceAction]string{
+		StartService:     "start",
+		StopService:      "stop",
+		RestartService:   "restart",
+		GetServiceStatus: "status",
+	}
 )
 
 func (s *ServiceCommandSpec) Build() (Command, error) {
@@ -67,6 +77,11 @@ func (s *ServiceCommandSpec) Build() (Command, error) {
 		"restart",
 		false,
 		"(action) Restarts a service provided by -name",
+	)
+	statusParam := fs.Bool(
+		"status",
+		false,
+		"(action) Gets the status of a service provided by -name",
 	)
 	removeParam := fs.Bool(
 		"remove",
@@ -117,11 +132,12 @@ func (s *ServiceCommandSpec) Build() (Command, error) {
 	}
 
 	actionParams := map[ServiceAction]bool{
-		ListServices:   *listParam,
-		StartService:   *startParam,
-		StopService:    *stopParam,
-		RestartService: *restartParam,
-		RemoveService:  *removeParam,
+		ListServices:     *listParam,
+		StartService:     *startParam,
+		StopService:      *stopParam,
+		RestartService:   *restartParam,
+		GetServiceStatus: *statusParam,
+		RemoveService:    *removeParam,
 	}
 
 	var actions []ServiceAction
@@ -184,11 +200,25 @@ func (c *ServiceCommand) Invoke() error {
 		if len(values) > 0 {
 			fmt.Println(utils.BuildTable([]string{"NAME", "PATH"}, values))
 		}
+	case StartService:
+	case StopService:
+	case RestartService:
+	case GetServiceStatus:
+		serviceConfig, err := serverConfig.LoadServiceConfig(exec, c.name)
+		if err != nil {
+			return err
+		}
+		actionName := ActionNames[c.action]
+		cmd, prs := serviceConfig.Commands[actionName]
+		if !prs {
+			return fmt.Errorf("service %s has no registered %s command", c.name, actionName)
+		}
+		if _, _, err := exec.ExecuteShell(cmd); err != nil {
+			return fmt.Errorf("%s command exited with error: %w", actionName, err)
+		}
 	default:
 		fmt.Println("not supported yet! Sorry!")
 	}
-
-	// TODO: How do we determine where these things live locally?
 
 	return nil
 }
