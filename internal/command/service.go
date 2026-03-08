@@ -165,7 +165,7 @@ func (c *ServiceCommand) Invoke() error {
 		exec = sshExec
 	}
 
-	serverConfig, err := serverconfig.LoadRemoteServerConfig(exec, install.DefaultConfigFilePath, true)
+	serverConfig, err := serverconfig.LoadServerConfig(exec, install.DefaultConfigFilePath, false)
 	if err != nil {
 		return err
 	}
@@ -174,12 +174,16 @@ func (c *ServiceCommand) Invoke() error {
 	case ListServices:
 		values := []map[string]string{}
 		for k, v := range serverConfig.Services {
-			values = append(values, map[string]string{
-				"NAME": k,
-				"PATH": v,
-			})
+			if c.name == "" || c.name == k {
+				values = append(values, map[string]string{
+					"NAME": k,
+					"PATH": v,
+				})
+			}
 		}
-		fmt.Println(utils.BuildTable([]string{"NAME", "PATH"}, values))
+		if len(values) > 0 {
+			fmt.Println(utils.BuildTable([]string{"NAME", "PATH"}, values))
+		}
 	default:
 		fmt.Println("not supported yet! Sorry!")
 	}

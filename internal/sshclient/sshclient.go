@@ -13,11 +13,12 @@ import (
 )
 
 func CreateSshExecutor(addr string, user string, keyPath string, keyPassphrase string) (deploy.Executor, error) {
+	fullAddr := addr
 	if !strings.Contains(addr, ":") {
-		addr = fmt.Sprintf("%s:22", addr)
+		fullAddr = fmt.Sprintf("%s:22", addr)
 	}
 	runElevated := true
-	sshExecutor, err := executor.NewSSHExecutor("remote", addr, user, keyPath, keyPassphrase, runElevated)
+	sshExecutor, err := executor.NewSSHExecutor(addr, fullAddr, user, keyPath, keyPassphrase, runElevated)
 	if err != nil {
 		return nil, err
 	}

@@ -12,6 +12,8 @@ import (
 	"github.com/mrshanahan/quemot-dev-service-management-tool/internal/utils"
 )
 
+// TODO: This should also accept the normal config arguments (install + register)
+
 type InstallCommandSpec struct {
 	Args []string
 }
@@ -78,7 +80,6 @@ func (c *InstallCommand) Invoke() error {
 		return err
 	}
 
-	slog.Debug("initializing transport")
 	transport, err := transport.NewScpTransport("smt-scp", c.hostname, c.sshUsername, c.sshKeyFilePath, "")
 	if err != nil {
 		return err

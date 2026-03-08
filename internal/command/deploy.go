@@ -137,7 +137,7 @@ func (c *DeployCommand) Invoke() error {
 		}
 	}
 
-	serverConfig, err := config.LoadRemoteServerConfig(sshExecutor, install.DefaultConfigFilePath, true)
+	serverConfig, err := config.LoadServerConfig(sshExecutor, install.DefaultConfigFilePath, true)
 	if err != nil {
 		return err
 	}
@@ -177,7 +177,7 @@ func (c *DeployCommand) Invoke() error {
 	if !c.dryRun {
 		slog.Debug("updating server config with new service path", "path", servicePath)
 		serverConfig.Services[c.projectConfig.Name] = servicePath
-		if err := config.SaveRemoteServerConfig(sshExecutor, install.DefaultConfigFilePath, serverConfig); err != nil {
+		if err := config.SaveServerConfig(sshExecutor, install.DefaultConfigFilePath, serverConfig); err != nil {
 			return err
 		}
 	}
