@@ -165,7 +165,7 @@ func (c *ServiceCommand) Invoke() error {
 		exec = sshExec
 	}
 
-	serverConfig, err := serverconfig.LoadRemoteServerConfig(exec, install.DefaultConfigFilePath, false)
+	serverConfig, err := serverconfig.LoadRemoteServerConfig(exec, install.DefaultConfigFilePath, true)
 	if err != nil {
 		return err
 	}
