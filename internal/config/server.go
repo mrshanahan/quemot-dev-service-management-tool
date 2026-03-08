@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"path/filepath"
+	"strings"
 
 	"github.com/mrshanahan/deploy-assets/pkg/config"
 
@@ -33,6 +34,9 @@ func LoadServerConfig(exec config.Executor, path string, force bool) (*ServerCon
 	if err := json.Unmarshal([]byte(stdout), &config); err != nil {
 		return nil, fmt.Errorf("[%s] failed to parse server config file %s: %w", exec.Name(), path, err)
 	}
+	if config.Services == nil {
+		config.Services = make(map[string]string)
+	}
 	return config, nil
 }
 
@@ -49,28 +53,37 @@ func SaveServerConfig(exec config.Executor, path string, c *ServerConfig) error 
 	return nil
 }
 
-func (c *ServerConfig) LoadServiceConfig(exec config.Executor, name string) (*service.ServiceConfig, error) {
+func (c *ServerConfig) LoadServiceConfig(exec config.Executor, name string, ignoreIfMissing bool) (*service.ServiceConfig, error) {
 	servicePath, prs := c.Services[name]
 	if !prs {
 		return nil, fmt.Errorf("[%s] no service registered with name %s", exec.Name(), name)
 	}
 
 	serviceConfigPath := filepath.Join(servicePath, ServiceConfigFileName)
-	if _, _, err := exec.ExecuteCommand("test", "-e", serviceConfigPath); err != nil {
-		return nil, fmt.Errorf("[%s] failed to find config file for service at %s", exec.Name(), serviceConfigPath)
-	}
-
-	stdout, _, err := exec.ExecuteCommand("cat", serviceConfigPath)
+	stdoutRaw, _, err := exec.ExecuteShell(fmt.Sprintf("(test -e '%s' && echo 'exists') || echo 'not-exists'", serviceConfigPath))
 	if err != nil {
-		return nil, fmt.Errorf("[%s] failed to get service config: %w", exec.Name(), err)
+		return nil, fmt.Errorf("[%s] failed to check if service config file %s exists", exec.Name(), serviceConfigPath)
 	}
 
-	var serviceConfig *service.ServiceConfig
-	if err := json.Unmarshal([]byte(stdout), &serviceConfig); err != nil {
-		return nil, fmt.Errorf("[%s] failed to parse service config file: %w", exec.Name(), err)
+	stdout := strings.Trim(stdoutRaw, " \n")
+	if stdout == "exists" {
+		stdout, _, err := exec.ExecuteCommand("cat", serviceConfigPath)
+		if err != nil {
+			return nil, fmt.Errorf("[%s] failed to get service config: %w", exec.Name(), err)
+		}
+
+		var serviceConfig *service.ServiceConfig
+		if err := json.Unmarshal([]byte(stdout), &serviceConfig); err != nil {
+			return nil, fmt.Errorf("[%s] failed to parse service config file: %w", exec.Name(), err)
+		}
+		return serviceConfig, nil
 	}
 
-	return serviceConfig, nil
+	if stdout == "not-exists" && ignoreIfMissing {
+		return nil, nil
+	}
+
+	return nil, fmt.Errorf("[%s] no service config file at %s", exec.Name(), serviceConfigPath)
 }
 
 func (c *ServerConfig) SaveServiceConfig(exec config.Executor, name string, config *service.ServiceConfig) error {

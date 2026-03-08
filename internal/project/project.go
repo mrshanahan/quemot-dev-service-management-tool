@@ -14,9 +14,9 @@ import (
 const ProjectConfigName string = "smt.json"
 
 type ProjectConfig struct {
-	ProjectConfigPath   string
-	ProjectDir          string
-	NginxConfFiles      []string
+	ProjectConfigPath   string            `json:"-"`
+	ProjectDir          string            `json:"-"`
+	NginxConfFiles      []string          `json:"-"`
 	Name                string            `json:"name"`
 	Type                string            `json:"type"`
 	ImageNames          []string          `json:"image_names"`
@@ -96,7 +96,7 @@ func parseProjectConfig(data []byte) (*ProjectConfig, error) {
 }
 
 func SaveProjectConfig(config *ProjectConfig) error {
-	jsonStr, err := json.Marshal(config)
+	jsonStr, err := json.MarshalIndent(config, "", "\t")
 	if err != nil {
 		return err
 	}

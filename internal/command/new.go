@@ -237,9 +237,14 @@ func (c *NewCommand) Invoke() error {
 				"restart": fmt.Sprintf("systemctl restart %s", systemctlServiceName),
 				"status":  fmt.Sprintf("systemctl status %s", systemctlServiceName),
 			},
+			Secrets:          []string{},
+			Env:              map[string]string{},
+			AdditionalAssets: []project.AdditionalAsset{},
 		}
 
-		project.SaveProjectConfig(projectConfig)
+		if err := project.SaveProjectConfig(projectConfig); err != nil {
+			return fmt.Errorf("failed to create project config: %w", err)
+		}
 	}
 	return nil
 }

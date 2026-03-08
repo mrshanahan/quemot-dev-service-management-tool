@@ -204,7 +204,7 @@ func (c *ServiceCommand) Invoke() error {
 	case StopService:
 	case RestartService:
 	case GetServiceStatus:
-		serviceConfig, err := serverConfig.LoadServiceConfig(exec, c.name)
+		serviceConfig, err := serverConfig.LoadServiceConfig(exec, c.name, false)
 		if err != nil {
 			return err
 		}

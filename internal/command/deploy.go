@@ -19,6 +19,7 @@ import (
 	"github.com/mrshanahan/quemot-dev-service-management-tool/internal/install"
 	"github.com/mrshanahan/quemot-dev-service-management-tool/internal/project"
 	"github.com/mrshanahan/quemot-dev-service-management-tool/internal/secrets"
+	"github.com/mrshanahan/quemot-dev-service-management-tool/internal/service"
 	"github.com/mrshanahan/quemot-dev-service-management-tool/internal/sshclient"
 	"github.com/mrshanahan/quemot-dev-service-management-tool/internal/utils"
 )
@@ -182,10 +183,13 @@ func (c *DeployCommand) Invoke() error {
 		}
 
 		// TODO: Put this into manifest via new "literal" asset
-		slog.Debug("updating service config", "path", servicePath)
-		serviceConfig, err := serverConfig.LoadServiceConfig(sshExecutor, c.projectConfig.Name)
+		slog.Info("updating service config", "path", servicePath)
+		serviceConfig, err := serverConfig.LoadServiceConfig(sshExecutor, c.projectConfig.Name, true)
 		if err != nil {
 			return err
+		}
+		if serviceConfig == nil {
+			serviceConfig = &service.ServiceConfig{Commands: make(map[string]string)}
 		}
 		serviceConfig.Commands = c.projectConfig.Commands
 		if err := serverConfig.SaveServiceConfig(sshExecutor, c.projectConfig.Name, serviceConfig); err != nil {
