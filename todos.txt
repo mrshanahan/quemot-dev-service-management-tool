@@ -1,3 +1,9 @@
 - Abstract out systemctl services to smt.json
 - Deploy smt itself remotely & use it to detect and manage services
 - Auto-registration of hostnames with Namecheap
+- Remove service
+    o Stop & remove systemctl services
+    o Delete Docker images
+    o Delete Docker volumes (?)
+        + This would generally mean that 
+    o Delete service directory

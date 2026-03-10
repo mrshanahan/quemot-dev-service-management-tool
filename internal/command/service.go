@@ -204,12 +204,12 @@ func (c *ServiceCommand) Invoke() error {
 	case StopService:
 	case RestartService:
 	case GetServiceStatus:
-		serviceConfig, err := serverConfig.LoadServiceConfig(exec, c.name, false)
+		serviceConfig, err := serverConfig.LoadServiceDefinition(exec, c.name, false)
 		if err != nil {
 			return err
 		}
 		actionName := ActionNames[c.action]
-		cmd, prs := serviceConfig.Commands[actionName]
+		cmd, prs := serviceConfig.ServiceConfig.Commands[actionName]
 		if !prs {
 			return fmt.Errorf("service %s has no registered %s command", c.name, actionName)
 		}

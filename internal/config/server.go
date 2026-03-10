@@ -4,16 +4,11 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"path/filepath"
 	"strings"
 
 	"github.com/mrshanahan/deploy-assets/pkg/config"
 
 	"github.com/mrshanahan/quemot-dev-service-management-tool/internal/service"
-)
-
-const (
-	ServiceConfigFileName string = "config.json"
 )
 
 type ServerConfig struct {
@@ -53,13 +48,13 @@ func SaveServerConfig(exec config.Executor, path string, c *ServerConfig) error 
 	return nil
 }
 
-func (c *ServerConfig) LoadServiceConfig(exec config.Executor, name string, ignoreIfMissing bool) (*service.ServiceConfig, error) {
+func (c *ServerConfig) LoadServiceDefinition(exec config.Executor, name string, ignoreIfMissing bool) (*service.ServiceDefinition, error) {
 	servicePath, prs := c.Services[name]
 	if !prs {
 		return nil, fmt.Errorf("[%s] no service registered with name %s", exec.Name(), name)
 	}
 
-	serviceConfigPath := filepath.Join(servicePath, ServiceConfigFileName)
+	serviceConfigPath := service.GetDefaultConfigPath(servicePath)
 	stdoutRaw, _, err := exec.ExecuteShell(fmt.Sprintf("(test -e '%s' && echo 'exists') || echo 'not-exists'", serviceConfigPath))
 	if err != nil {
 		return nil, fmt.Errorf("[%s] failed to check if service config file %s exists", exec.Name(), serviceConfigPath)
@@ -76,7 +71,10 @@ func (c *ServerConfig) LoadServiceConfig(exec config.Executor, name string, igno
 		if err := json.Unmarshal([]byte(stdout), &serviceConfig); err != nil {
 			return nil, fmt.Errorf("[%s] failed to parse service config file: %w", exec.Name(), err)
 		}
-		return serviceConfig, nil
+		return &service.ServiceDefinition{
+			Path:          servicePath,
+			ServiceConfig: serviceConfig,
+		}, nil
 	}
 
 	if stdout == "not-exists" && ignoreIfMissing {
@@ -92,7 +90,7 @@ func (c *ServerConfig) SaveServiceConfig(exec config.Executor, name string, conf
 		return fmt.Errorf("[%s] no service registered with name %s", exec.Name(), name)
 	}
 
-	serviceConfigPath := filepath.Join(servicePath, ServiceConfigFileName)
+	serviceConfigPath := service.GetDefaultConfigPath(servicePath)
 
 	configJson, err := json.MarshalIndent(config, "", "\t")
 	if err != nil {

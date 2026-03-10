@@ -1,6 +1,7 @@
 package command
 
 import (
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -142,13 +143,18 @@ func (c *DeployCommand) Invoke() error {
 	if err != nil {
 		return err
 	}
-	servicePath, prs := serverConfig.Services[c.projectConfig.Name]
-	if !prs {
-		servicePath = filepath.Join(install.DefaultServicesDir, c.projectConfig.Name)
-		slog.Debug("service entry does not exist in server config; using default path", "name", c.projectConfig.Name, "new-path", servicePath)
+
+	serviceDefn, err := serverConfig.LoadServiceDefinition(sshExecutor, c.projectConfig.Name, true)
+	if err != nil {
+		return err
 	}
-	remoteBaseDir := servicePath
-	assets, err := buildAssets(remoteBaseDir, c.projectConfig, c.force)
+	if serviceDefn == nil {
+		serviceDefn = service.NewServiceDefinition(c.projectConfig.Name)
+		slog.Debug("service entry does not exist in server config; using default path", "name", c.projectConfig.Name, "new-path", serviceDefn.Path)
+	}
+
+	serviceDefn.ServiceConfig.Commands = c.projectConfig.Commands
+	assets, err := buildAssets(serviceDefn, c.projectConfig, c.force)
 	if err != nil {
 		return fmt.Errorf("failed to build manifest assets list: %w", err)
 	}
@@ -176,23 +182,9 @@ func (c *DeployCommand) Invoke() error {
 	}
 
 	if !c.dryRun {
-		slog.Debug("updating server config with new service path", "path", servicePath)
-		serverConfig.Services[c.projectConfig.Name] = servicePath
+		slog.Debug("updating server config with new service path", "path", serviceDefn.Path)
+		serverConfig.Services[c.projectConfig.Name] = serviceDefn.Path
 		if err := config.SaveServerConfig(sshExecutor, install.DefaultConfigFilePath, serverConfig); err != nil {
-			return err
-		}
-
-		// TODO: Put this into manifest via new "literal" asset
-		slog.Info("updating service config", "path", servicePath)
-		serviceConfig, err := serverConfig.LoadServiceConfig(sshExecutor, c.projectConfig.Name, true)
-		if err != nil {
-			return err
-		}
-		if serviceConfig == nil {
-			serviceConfig = service.NewServiceConfig()
-		}
-		serviceConfig.Commands = c.projectConfig.Commands
-		if err := serverConfig.SaveServiceConfig(sshExecutor, c.projectConfig.Name, serviceConfig); err != nil {
 			return err
 		}
 	}
@@ -222,7 +214,8 @@ func buildManifest(c *DeployCommand, assets []*deploy.ProviderConfig) (*manifest
 	return m, nil
 }
 
-func buildAssets(remoteDir string, c *project.ProjectConfig, force bool) ([]*deploy.ProviderConfig, error) {
+func buildAssets(serviceDefn *service.ServiceDefinition, c *project.ProjectConfig, force bool) ([]*deploy.ProviderConfig, error) {
+	remoteDir := serviceDefn.Path
 	assets := []*deploy.ProviderConfig{}
 	dockerComposeAsset := &deploy.ProviderConfig{
 		Provider:     provider.NewFileProvider("docker-compose-file", c.ProjectDir, c.DockerComposePath, filepath.Join(remoteDir, "docker-compose.yml"), false, force),
@@ -296,6 +289,19 @@ func buildAssets(remoteDir string, c *project.ProjectConfig, force bool) ([]*dep
 			assets = append(assets, confFileAsset)
 		}
 	}
+
+	serviceConfigJson, err := json.MarshalIndent(serviceDefn.ServiceConfig, "", "\t")
+	if err != nil {
+		return nil, fmt.Errorf("failed to serialize service config to JSON: %w", err)
+	}
+	serviceConfigPath := service.GetDefaultConfigPath(serviceDefn.Path)
+	serviceConfigAsset := &deploy.ProviderConfig{
+		Provider:     provider.NewLiteralProvider("service-config-json", string(serviceConfigJson), serviceConfigPath),
+		Src:          LOCAL_SERVER_NAME,
+		Dst:          REMOTE_SERVER_NAME,
+		PostCommands: []*deploy.PostCommand{},
+	}
+	assets = append(assets, serviceConfigAsset)
 
 	for _, a := range c.AdditionalAssets {
 		additionalAsset := &deploy.ProviderConfig{
