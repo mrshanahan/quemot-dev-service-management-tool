@@ -51,6 +51,9 @@ func SaveServerConfig(exec config.Executor, path string, c *ServerConfig) error 
 func (c *ServerConfig) LoadServiceDefinition(exec config.Executor, name string, ignoreIfMissing bool) (*service.ServiceDefinition, error) {
 	servicePath, prs := c.Services[name]
 	if !prs {
+		if ignoreIfMissing {
+			return nil, nil
+		}
 		return nil, fmt.Errorf("[%s] no service registered with name %s", exec.Name(), name)
 	}
 
