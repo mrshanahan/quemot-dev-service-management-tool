@@ -213,9 +213,11 @@ func (c *ServiceCommand) Invoke() error {
 		if !prs {
 			return fmt.Errorf("service %s has no registered %s command", c.name, actionName)
 		}
-		if _, _, err := exec.ExecuteShell(cmd); err != nil {
+		var stdout string
+		if stdout, _, err = exec.ExecuteShell(cmd); err != nil {
 			return fmt.Errorf("%s command exited with error: %w", actionName, err)
 		}
+		fmt.Println(stdout)
 	default:
 		fmt.Println("not supported yet! Sorry!")
 	}
